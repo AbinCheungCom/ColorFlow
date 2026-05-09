@@ -1,0 +1,233 @@
+// === Tab Navigation ===
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// === Vector Trace ===
+const uploadZone = document.getElementById('uploadZone');
+const traceFile = document.getElementById('traceFile');
+const previewImg = document.getElementById('previewImg');
+const traceBtn = document.getElementById('traceBtn');
+const svgPreview = document.getElementById('svgPreview');
+const svgInfo = document.getElementById('svgInfo');
+const downloadSvg = document.getElementById('downloadSvg');
+const filterSpeckle = document.getElementById('filterSpeckle');
+const speckleVal = document.getElementById('speckleVal');
+const pathPrecision = document.getElementById('pathPrecision');
+const precisionVal = document.getElementById('precisionVal');
+
+let currentSvgBase64 = null;
+
+filterSpeckle.addEventListener('input', () => speckleVal.textContent = filterSpeckle.value);
+pathPrecision.addEventListener('input', () => precisionVal.textContent = pathPrecision.value);
+
+uploadZone.addEventListener('click', () => traceFile.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) {
+    traceFile.files = e.dataTransfer.files;
+    handleFile(e.dataTransfer.files[0]);
+  }
+});
+
+traceFile.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) {
+    alert('请上传图片文件');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('图片不能超过 10MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    previewImg.src = e.target.result;
+    previewImg.classList.remove('hidden');
+    uploadZone.querySelector('.upload-placeholder').classList.add('hidden');
+    traceBtn.disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+traceBtn.addEventListener('click', async () => {
+  if (!traceFile.files[0]) return;
+  traceBtn.disabled = true;
+  traceBtn.querySelector('.btn-text').classList.add('hidden');
+  traceBtn.querySelector('.btn-loader').classList.remove('hidden');
+
+  const formData = new FormData();
+  formData.append('image', traceFile.files[0]);
+  formData.append('mode', document.getElementById('traceMode').value);
+  formData.append('filter_speckle', filterSpeckle.value);
+  formData.append('path_precision', pathPrecision.value);
+
+  try {
+    const resp = await fetch('/api/trace', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (data.success) {
+      currentSvgBase64 = data.svg_base64;
+      const svgEl = `<img src="data:image/svg+xml;base64,${data.svg_base64}" alt="SVG Output" />`;
+      svgPreview.innerHTML = svgEl;
+      svgInfo.classList.remove('hidden');
+      svgInfo.querySelector('.svg-size').textContent = `${(data.size / 1024).toFixed(1)} KB`;
+    } else {
+      svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">错误: ${data.error}</div>`;
+    }
+  } catch (e) {
+    svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">请求失败: ${e}</div>`;
+  } finally {
+    traceBtn.disabled = false;
+    traceBtn.querySelector('.btn-text').classList.remove('hidden');
+    traceBtn.querySelector('.btn-loader').classList.add('hidden');
+  }
+});
+
+downloadSvg.addEventListener('click', () => {
+  if (!currentSvgBase64) return;
+  const a = document.createElement('a');
+  a.href = 'data:image/svg+xml;base64,' + currentSvgBase64;
+  a.download = 'colorflow_output.svg';
+  a.click();
+});
+
+// === Pantone Lookup ===
+const pantoneInput = document.getElementById('pantoneInput');
+const pantoneBtn = document.getElementById('pantoneBtn');
+const pantoneResult = document.getElementById('pantoneResult');
+const pantoneError = document.getElementById('pantoneError');
+
+pantoneBtn.addEventListener('click', async () => {
+  const name = pantoneInput.value.trim();
+  if (!name) return;
+  pantoneResult.classList.add('hidden');
+  pantoneError.classList.add('hidden');
+
+  try {
+    const resp = await fetch(`/api/pantone/lookup?name=${encodeURIComponent(name)}`);
+    const data = await resp.json();
+    if (data.success) {
+      const r = data.result;
+      document.getElementById('pantoneSwatch').style.background = r.hex;
+      document.getElementById('pantoneName').textContent = r.name;
+      document.getElementById('pantoneHex').textContent = r.hex;
+      document.getElementById('pantoneCmyk').textContent = `${r.c}/${r.m}/${r.y}/${r.k}`;
+      document.getElementById('pantoneRgb').textContent = r.rgb || 'N/A';
+      pantoneResult.classList.remove('hidden');
+    } else {
+      pantoneError.textContent = data.error || '查询失败';
+      pantoneError.classList.remove('hidden');
+    }
+  } catch (e) {
+    pantoneError.textContent = '请求失败: ' + e;
+    pantoneError.classList.remove('hidden');
+  }
+});
+
+pantoneInput.addEventListener('keydown', e => { if (e.key === 'Enter') pantoneBtn.click(); });
+
+// === Color Match ===
+const colorPicker = document.getElementById('colorPicker');
+const hexInput = document.getElementById('hexInput');
+const matchBtn = document.getElementById('matchBtn');
+const matchResults = document.getElementById('matchResults');
+
+colorPicker.addEventListener('input', () => { hexInput.value = colorPicker.value; });
+hexInput.addEventListener('input', () => {
+  if (hexInput.value.startsWith('#') && hexInput.value.length === 7) {
+    colorPicker.value = hexInput.value;
+  }
+});
+
+matchBtn.addEventListener('click', async () => {
+  let hex = hexInput.value.trim();
+  if (!hex.startsWith('#')) hex = '#' + hex;
+  if (hex.length !== 7) return;
+
+  matchResults.innerHTML = '<div class="match-placeholder">查询中...</div>';
+
+  try {
+    const resp = await fetch('/api/pantone/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hex_color: hex }),
+    });
+    const data = await resp.json();
+    if (data.success && data.matches.length > 0) {
+      matchResults.innerHTML = '';
+      data.matches.forEach(m => {
+        const gradeClass = m.delta_e < 1 ? 'excellent' : m.delta_e < 3 ? 'good' : m.delta_e < 6 ? 'fair' : 'poor';
+        matchResults.innerHTML += `
+          <div class="match-item">
+            <div class="match-swatch" style="background:${m.hex}"></div>
+            <div class="match-info">
+              <div class="match-name">${m.name}</div>
+              <div class="match-hex">${m.hex} · CMYK ${m.cmyk.join('/')}</div>
+            </div>
+            <div class="match-de ${gradeClass}">ΔE ${m.delta_e}</div>
+          </div>
+        `;
+      });
+    } else {
+      matchResults.innerHTML = '<div class="match-placeholder">未找到匹配颜色</div>';
+    }
+  } catch (e) {
+    matchResults.innerHTML = `<div class="match-placeholder" style="color:var(--error)">请求失败: ${e}</div>`;
+  }
+});
+
+// === Print Cost ===
+const costBtn = document.getElementById('costBtn');
+const costResult = document.getElementById('costResult');
+
+costBtn.addEventListener('click', async () => {
+  costResult.classList.add('hidden');
+  costResult.innerHTML = '<div class="match-placeholder">计算中...</div>';
+  costResult.classList.remove('hidden');
+
+  try {
+    const resp = await fetch('/api/cost/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        width: parseFloat(document.getElementById('printWidth').value),
+        height: parseFloat(document.getElementById('printHeight').value),
+        qty: parseInt(document.getElementById('printQty').value),
+        colors: parseInt(document.getElementById('printColors').value),
+        gsm: parseInt(document.getElementById('printGsm').value),
+        method: document.getElementById('printMethod').value,
+      }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      const r = data.result;
+      let html = '<table>';
+      html += `<tr><td>油墨 (Ink)</td><td>$${r.ink_cost_usd || 'N/A'}</td></tr>`;
+      html += `<tr><td>版材 (Plates)</td><td>$${r.breakdown?.plates || 'N/A'}</td></tr>`;
+      html += `<tr><td>调机 (Makeready)</td><td>$${r.breakdown?.makeready || 'N/A'}</td></tr>`;
+      html += `<tr><td>印刷 (Run)</td><td>$${r.breakdown?.run_cost || 'N/A'}</td></tr>`;
+      html += `<tr class="total-row"><td>总计 (Total)</td><td>$${r.total_cost_usd?.toFixed(2) || 'N/A'}</td></tr>`;
+      html += `<tr><td>单价 (Per Unit)</td><td>$${r.cost_per_unit_usd?.toFixed(4) || 'N/A'}</td></tr>`;
+      html += '</table>';
+      costResult.innerHTML = html;
+    } else {
+      costResult.innerHTML = `<div class="error-msg">${data.error}</div>`;
+    }
+  } catch (e) {
+    costResult.innerHTML = `<div class="error-msg">请求失败: ${e}</div>`;
+  }
+});
+
+// Initial color match load
+matchBtn.click();
