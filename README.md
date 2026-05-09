@@ -129,3 +129,9 @@ pip install -e ".[dev]"
 ## License
 
 MIT © AbinCheungCom
+
+## 相关项目
+
+| 项目 | 说明 |
+|------|------|
+| [ColorFlow Web](https://github.com/AbinCheungCom/ColorFlow-Web) | ColorFlow Web 前端（矢量描图 + Pantone 色彩管理 + 印刷报价）|
