@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  colorflow-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - COLORFLOW_API_KEY=${COLORFLOW_API_KEY:-mv-p4ss-k3y-2026}
+      - COLORFLOW_OUTPUT_DIR=/data/output
+      - COLORFLOW_TIMEOUT=30
+    volumes:
+      - ../data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  colorflow-cli:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ..:/data
+    command: --input /data/input.png --output /data/output.svg --mode color
