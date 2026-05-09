@@ -1,24 +1,17 @@
 # ColorFlow Web - AI 矢量描图 + Pantone 色彩管理
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 import math
 import os
-import io
 import base64
-import json
-import uuid
-from werkzeug.utils import secure_filename
 
 from colorflow_sdk import ColorFlowSDK
 from mcp_print.tools.colors import (
     pantone_to_cmyk,
     pantone_search,
     cmyk_to_rgb,
-    color_delta_e,
     _hex_to_rgb,
     _rgb_to_lab,
-    _xyz_to_lab,
-    _rgb_to_xyz,
     _cmyk_to_lab,
 )
 from mcp_print.tools.cost import print_cost_estimate
@@ -60,9 +53,19 @@ def trace_image():
     path_precision = int(request.form.get("path_precision", 7))
 
     try:
+        # Infer image format from content-type
+        content_type = file.content_type or "image/png"
+        content_type_map = {
+            "image/png": "png",
+            "image/jpeg": "jpeg",
+            "image/webp": "webp",
+            "image/bmp": "bmp",
+        }
+        image_format = content_type_map.get(content_type, "png")
+
         svg_bytes = sdk.trace_bytes(
             image_bytes,
-            image_format="png",
+            image_format=image_format,
             mode=mode,
             filter_speckle=filter_speckle,
             color_precision=color_precision,
@@ -72,11 +75,13 @@ def trace_image():
         )
         # Return as base64 for easier JS handling
         b64 = base64.b64encode(svg_bytes).decode("utf-8")
-        return jsonify({
-            "success": True,
-            "svg_base64": b64,
-            "size": len(svg_bytes),
-        })
+        return jsonify(
+            {
+                "success": True,
+                "svg_base64": b64,
+                "size": len(svg_bytes),
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -107,26 +112,35 @@ def match_pantone():
             rgb = cmyk_to_rgb(c, mm, y, k)
             # Delta E via LAB
             lab_pantone = _cmyk_to_lab(c, mm, y, k)
-            de_value = math.sqrt(sum((a-b)**2 for a,b in zip(lab_hex, lab_pantone)))
+            de_value = math.sqrt(
+                sum((a - b) ** 2 for a, b in zip(lab_hex, lab_pantone))
+            )
             de_interp = (
-                "excellent — imperceptible difference" if de_value < 1
-                else "good — barely perceptible" if de_value < 3
-                else "fair — noticeable difference" if de_value < 6
+                "excellent — imperceptible difference"
+                if de_value < 1
+                else "good — barely perceptible"
+                if de_value < 3
+                else "fair — noticeable difference"
+                if de_value < 6
                 else "poor — obvious difference"
             )
-            enriched.append({
-                "name": m["name"],
-                "hex": m["hex"],
-                "cmyk": [c, mm, y, k],
-                "rgb": rgb,
-                "delta_e": round(de_value, 2),
-                "interpretation": de_interp,
-            })
+            enriched.append(
+                {
+                    "name": m["name"],
+                    "hex": m["hex"],
+                    "cmyk": [c, mm, y, k],
+                    "rgb": rgb,
+                    "delta_e": round(de_value, 2),
+                    "interpretation": de_interp,
+                }
+            )
 
-        return jsonify({
-            "success": True,
-            "matches": enriched,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "matches": enriched,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -140,10 +154,12 @@ def pantone_lookup():
 
     try:
         result = pantone_to_cmyk(name)
-        return jsonify({
-            "success": True,
-            "result": result,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "result": result,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -157,6 +173,7 @@ def list_colors():
 
     try:
         from mcp_print.tools.colors import _load_db
+
         db = _load_db()
 
         if search:
@@ -168,14 +185,16 @@ def list_colors():
         end = start + limit
         items = db[start:end]
 
-        return jsonify({
-            "success": True,
-            "items": items,
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "pages": (total + limit - 1) // limit,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "items": items,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -193,13 +212,21 @@ def cost_quote():
             paper_gsm=float(data.get("gsm", 120)),
             print_method=data.get("method", "offset"),
         )
-        return jsonify({
-            "success": True,
-            "result": result,
-        })
+        return jsonify(
+            {
+                "success": True,
+                "result": result,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import os
+
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 5000)),
+        debug=os.getenv("FLASK_DEBUG", "false").lower() == "true",
+    )
