@@ -5,11 +5,11 @@ ColorFlow Python SDK
 
 import os
 import tempfile
-import vtracer
 from uuid import uuid4
-from typing import Optional
 
-from .exceptions import ValidationError, TraceError
+import vtracer
+
+from .exceptions import TraceError, ValidationError
 
 
 class ColorFlowSDK:
@@ -45,9 +45,7 @@ class ColorFlowSDK:
     def _validate_mode(self, mode: str) -> None:
         """校验 mode 参数"""
         if mode not in self.MODES:
-            raise ValidationError(
-                f"Invalid mode: {mode}. Must be one of {self.MODES}"
-            )
+            raise ValidationError(f"Invalid mode: {mode}. Must be one of {self.MODES}")
 
     def _validate_colormode(self, colormode: str) -> None:
         """校验 colormode 参数"""
@@ -68,7 +66,9 @@ class ColorFlowSDK:
     ) -> None:
         """校验数值范围"""
         if not isinstance(value, int):
-            raise ValidationError(f"{name} must be an integer, got {type(value).__name__}")
+            raise ValidationError(
+                f"{name} must be an integer, got {type(value).__name__}"
+            )
         if not (min_val <= value <= max_val):
             raise ValidationError(
                 f"{name} must be between {min_val} and {max_val}, got {value}"
@@ -79,7 +79,9 @@ class ColorFlowSDK:
     ) -> None:
         """校验浮点数范围"""
         if not isinstance(value, (int, float)):
-            raise ValidationError(f"{name} must be a number, got {type(value).__name__}")
+            raise ValidationError(
+                f"{name} must be a number, got {type(value).__name__}"
+            )
         if not (min_val <= value <= max_val):
             raise ValidationError(
                 f"{name} must be between {min_val} and {max_val}, got {value}"
@@ -167,10 +169,7 @@ class ColorFlowSDK:
         return output_path
 
     def trace_bytes(
-        self,
-        image_bytes: bytes,
-        image_format: str = "png",
-        **kwargs
+        self, image_bytes: bytes, image_format: str = "png", **kwargs
     ) -> bytes:
         """
         将位图转为 SVG（内存模式，不落盘）
@@ -194,22 +193,20 @@ class ColorFlowSDK:
 
         try:
             svg_path = self.trace(tmp_path, **kwargs)
+            # 先读取内容，再清理（避免返回时文件已被删除）
             with open(svg_path, "rb") as f:
-                return f.read()
+                svg_bytes = f.read()
         finally:
-            # 清理临时文件
+            # 清理临时输入文件
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
             # 清理 SVG 输出
             if "svg_path" in locals() and os.path.exists(svg_path):
                 os.unlink(svg_path)
 
-    def trace_with_retry(
-        self,
-        image_path: str,
-        max_retries: int = 3,
-        **kwargs
-    ) -> str:
+        return svg_bytes
+
+    def trace_with_retry(self, image_path: str, max_retries: int = 3, **kwargs) -> str:
         """
         带降级重试的 VTracer 调用
         按 color -> grey -> human 顺序降级

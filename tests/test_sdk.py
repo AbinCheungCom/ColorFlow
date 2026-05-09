@@ -1,10 +1,11 @@
 """SDK 单元测试"""
+
 import os
+
 import pytest
-from pathlib import Path
 
 from colorflow_sdk import ColorFlowSDK
-from colorflow_sdk.exceptions import ValidationError, TraceError
+from colorflow_sdk.exceptions import ValidationError
 
 
 class TestColorFlowSDK:
@@ -90,7 +91,7 @@ class TestTraceIntegration:
             assert svg_path.endswith(".svg")
 
             # 验证 SVG 内容
-            with open(svg_path, "r") as f:
+            with open(svg_path) as f:
                 content = f.read()
             assert "<svg" in content
             assert len(content) > 100

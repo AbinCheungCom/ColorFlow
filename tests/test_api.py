@@ -1,5 +1,5 @@
 """API 集成测试"""
-import pytest
+
 from fastapi.testclient import TestClient
 
 from api.main import app

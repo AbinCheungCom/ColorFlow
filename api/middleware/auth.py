@@ -1,7 +1,10 @@
 """API KEY 认证中间件"""
+
 import secrets
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from api.config import COLORFLOW_API_KEY
 
 

@@ -2,7 +2,9 @@
 ColorFlow API 服务入口
 FastAPI + Uvicorn
 """
+
 import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -55,10 +57,11 @@ async def root():
         "service": "ColorFlow API",
         "version": "0.1.0",
         "docs": "/docs",
-        "health": "/api/health"
+        "health": "/api/health",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)

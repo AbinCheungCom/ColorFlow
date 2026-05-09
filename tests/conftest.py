@@ -1,7 +1,8 @@
 """pytest fixtures"""
-import os
-import pytest
+
 from pathlib import Path
+
+import pytest
 
 # 测试素材目录
 TEST_ASSETS = Path(__file__).parent.parent / "assets"
@@ -26,4 +27,5 @@ def output_dir(tmp_path):
 def sdk(output_dir):
     """返回配置好的 SDK 实例"""
     from colorflow_sdk import ColorFlowSDK
+
     return ColorFlowSDK(output_dir=output_dir)

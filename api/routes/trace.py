@@ -1,11 +1,15 @@
 """Trace 接口路由"""
-import io
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Query
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from api.config import (
+    ALLOWED_IMAGE_TYPES,
+    COLORFLOW_MAX_FILE_SIZE,
+    COLORFLOW_OUTPUT_DIR,
+)
 from colorflow_sdk import ColorFlowSDK
-from colorflow_sdk.exceptions import ValidationError, TraceError
-from api.config import ALLOWED_IMAGE_TYPES, COLORFLOW_OUTPUT_DIR, COLORFLOW_MAX_FILE_SIZE
+from colorflow_sdk.exceptions import TraceError, ValidationError
 
 router = APIRouter()
 
@@ -38,7 +42,7 @@ async def trace_image(
     if image.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported file type: {image.content_type}. Allowed: PNG, JPEG, WebP, BMP"
+            detail=f"Unsupported file type: {image.content_type}. Allowed: PNG, JPEG, WebP, BMP",
         )
 
     # 读取图片内容
@@ -48,7 +52,7 @@ async def trace_image(
     if len(image_bytes) > COLORFLOW_MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Max size: {COLORFLOW_MAX_FILE_SIZE // (1024*1024)}MB"
+            detail=f"File too large. Max size: {COLORFLOW_MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
     # 推断图片格式
@@ -81,7 +85,7 @@ async def trace_image(
         content=svg_bytes,
         media_type="image/svg+xml",
         headers={
-            "Content-Disposition": f'attachment; filename="output.svg"',
+            "Content-Disposition": 'attachment; filename="output.svg"',
             "X-Content-Type-Options": "nosniff",
-        }
+        },
     )
