@@ -5,6 +5,31 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// === API Key：localStorage 持久化 + 自动附带 x-api-key 头 ===
+const apiKeyInput = document.getElementById('apiKeyInput');
+const apiKeyBtn = document.getElementById('apiKeyBtn');
+
+apiKeyInput.value = localStorage.getItem('colorflow_api_key') || '';
+apiKeyBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (key) {
+    localStorage.setItem('colorflow_api_key', key);
+    apiKeyBtn.textContent = '✓ 已保存';
+  } else {
+    localStorage.removeItem('colorflow_api_key');
+    apiKeyBtn.textContent = '已清除';
+  }
+  setTimeout(() => { apiKeyBtn.textContent = '保存'; }, 1200);
+});
+
+function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const key = localStorage.getItem('colorflow_api_key');
+  if (key) headers.set('x-api-key', key);
+  options.headers = headers;
+  return fetch(url, options);
+}
+
 // === Tab Navigation ===
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -81,7 +106,7 @@ traceBtn.addEventListener('click', async () => {
   formData.append('path_precision', pathPrecision.value);
 
   try {
-    const resp = await fetch('/api/trace', { method: 'POST', body: formData });
+    const resp = await apiFetch('/api/trace', { method: 'POST', body: formData });
     const data = await resp.json();
     if (data.success) {
       currentSvgBase64 = data.svg_base64;
@@ -109,6 +134,74 @@ downloadSvg.addEventListener('click', () => {
   a.click();
 });
 
+// === 一键流水线：提取主色 & Pantone 匹配 ===
+const colorMatchBtn = document.getElementById('colorMatchBtn');
+const paletteResults = document.getElementById('paletteResults');
+
+colorMatchBtn.addEventListener('click', async () => {
+  if (!traceFile.files[0]) return;
+  colorMatchBtn.disabled = true;
+  colorMatchBtn.textContent = '提取中...';
+  paletteResults.classList.remove('hidden');
+  paletteResults.innerHTML = '<div class="match-placeholder">正在描图并提取主色...</div>';
+
+  const formData = new FormData();
+  formData.append('image', traceFile.files[0]);
+  formData.append('mode', document.getElementById('traceMode').value);
+  formData.append('filter_speckle', filterSpeckle.value);
+  formData.append('path_precision', pathPrecision.value);
+
+  try {
+    const resp = await apiFetch('/api/trace/colors', { method: 'POST', body: formData });
+    const data = await resp.json();
+    if (!data.success) {
+      paletteResults.innerHTML = `<div class="match-placeholder" style="color:var(--error)">错误: ${escapeHtml(data.error)}</div>`;
+      return;
+    }
+
+    if (!data.palette || data.palette.length === 0) {
+      paletteResults.innerHTML = '<div class="match-placeholder">未检测到可识别的主色（可能为单色或渐变图）</div>';
+      return;
+    }
+
+    let html = '<div class="palette-title">检测到 ' + data.palette.length + ' 个主色 · Pantone 匹配</div>';
+    data.palette.forEach(item => {
+      const pct = Math.round((item.color.share || 0) * 100);
+      html += `<div class="palette-item">
+        <div class="match-swatch" style="background:${escapeHtml(item.color.hex)}"></div>
+        <div class="match-info">
+          <div class="match-name">${escapeHtml(item.color.hex)} <span class="palette-share">${pct}%</span></div>`;
+      if (item.pantone_matches.length > 0) {
+        const top = item.pantone_matches[0];
+        html += `<div class="match-hex">Pantone ${escapeHtml(top.name)} · ΔE ${escapeHtml(top.delta_e)}</div>`;
+      } else {
+        html += '<div class="match-hex">无匹配色</div>';
+      }
+      html += `</div></div>`;
+    });
+    html += `<div class="palette-actions">
+      <button class="btn btn-small btn-accent" id="fillQuoteBtn">按 ${data.color_count} 色填入报价</button>
+    </div>`;
+    paletteResults.innerHTML = html;
+
+    // 「填入报价」：切到报价 Tab、按色数报价
+    document.getElementById('fillQuoteBtn').addEventListener('click', () => {
+      const qty = data.color_count || 4;
+      const select = document.getElementById('printColors');
+      const opts = Array.from(select.options).map(o => parseInt(o.value));
+      const nearest = opts.reduce((best, v) => Math.abs(v - qty) < Math.abs(best - qty) ? v : best);
+      select.value = String(nearest);
+      document.querySelector('.tab[data-tab="cost"]').click();
+      document.getElementById('costBtn').click();
+    });
+  } catch (e) {
+    paletteResults.innerHTML = `<div class="match-placeholder" style="color:var(--error)">请求失败: ${escapeHtml(e)}</div>`;
+  } finally {
+    colorMatchBtn.disabled = false;
+    colorMatchBtn.textContent = '提取主色 & Pantone 匹配';
+  }
+});
+
 // === Pantone Lookup ===
 const pantoneInput = document.getElementById('pantoneInput');
 const pantoneBtn = document.getElementById('pantoneBtn');
@@ -122,7 +215,7 @@ pantoneBtn.addEventListener('click', async () => {
   pantoneError.classList.add('hidden');
 
   try {
-    const resp = await fetch(`/api/pantone/lookup?name=${encodeURIComponent(name)}`);
+    const resp = await apiFetch(`/api/pantone/lookup?name=${encodeURIComponent(name)}`);
     const data = await resp.json();
     if (data.success) {
       const r = data.result;
@@ -165,7 +258,7 @@ matchBtn.addEventListener('click', async () => {
   matchResults.innerHTML = '<div class="match-placeholder">查询中...</div>';
 
   try {
-    const resp = await fetch('/api/pantone/match', {
+    const resp = await apiFetch('/api/pantone/match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hex_color: hex }),
@@ -204,7 +297,7 @@ costBtn.addEventListener('click', async () => {
   costResult.classList.remove('hidden');
 
   try {
-    const resp = await fetch('/api/cost/quote', {
+    const resp = await apiFetch('/api/cost/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

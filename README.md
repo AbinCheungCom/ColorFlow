@@ -16,6 +16,8 @@ ColorFlow Web 是 **ColorFlow 矢量描图 SDK** 和 **Pantone 色彩管理** �
 | **Pantone 查色** | 输入 Pantone 色号，一键获取 HEX / CMYK / RGB 值 |
 | **色彩匹配** | 输入 HEX，自动匹配最近的 5 个 Pantone 色 + ΔE 色彩偏差 |
 | **印刷报价** | 尺寸/颜色/纸张/数量 → 全链路油墨+版材+调机+印刷成本 |
+| **一键流水线** | 描图后自动提取主色 → 逐一匹配 Pantone → 一键填入报价 |
+| **AI Agent 接入** | 内置 MCP Server，Claude Code 等 Agent 可直接调用全部能力 |
 
 ## 技术栈
 
@@ -31,10 +33,7 @@ ColorFlow Web 是 **ColorFlow 矢量描图 SDK** 和 **Pantone 色彩管理** �
 
 ```
 上传位图 → VTracer 描图 → SVG 输出
-                          ↓
-              HEX 填色值 → Pantone 匹配 → ΔE 偏差
-                                        ↓
-                              印刷报价 → 全链路成本
+        └→ 一键主色提取 → Pantone 匹配（ΔE）→ 自动填入报价
 ```
 
 ## 快速启动
@@ -61,6 +60,8 @@ python3 app.py
 ### 生产部署
 
 ```bash
+# 生产环境务必设置 API Key（设置后 /api/* 需要 x-api-key 头，否则开放）
+export COLORFLOW_API_KEY="your-secret-key"
 export FLASK_DEBUG=false
 export PORT=5000
 python3 app.py
@@ -73,11 +74,48 @@ pip install gunicorn
 gunicorn -w 2 -b 0.0.0.0:5000 app:app
 ```
 
+## AI Agent 接入（MCP Server）
+
+内置 MCP Server，让 Claude Code / Cursor 等 Agent 直接调用描图、Pantone 匹配、报价能力。
+
+```bash
+pip install fastmcp
+mcp run mcp_server.py
+```
+
+接入 Claude Code（`~/.claude.json` 或项目 `.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "colorflow": {
+      "command": "python",
+      "args": ["/path/to/mcp_server.py"]
+    }
+  }
+}
+```
+
+可用工具：
+
+| Tool | 说明 |
+|------|------|
+| `trace_image` | 位图 → SVG，返回文件路径 |
+| `match_pantone` | HEX → 最近 5 个 Pantone 色 + ΔE |
+| `quote_print` | 印刷全链路报价 |
+| `trace_and_match` | 一键流水线：描图 → 主色 → Pantone 匹配 |
+
+```bash
+# Agent 可直接说：
+# 「把 D:/img.png 描成矢量，提取主色，匹配 Pantone，再报 5000 张 4 色的价格」
+```
+
 ## API 接口
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `POST` | `/api/trace` | 位图 → SVG（multipart/form-data）|
+| `POST` | `/api/trace/colors` | 描图 + 主色提取 + Pantone 匹配（一键流水线）|
 | `POST` | `/api/pantone/match` | HEX → Pantone 最近匹配 + ΔE |
 | `GET` | `/api/pantone/lookup?name=` | Pantone 色号精确查询 |
 | `GET` | `/api/pantone/colors?page=&limit=&search=` | Pantone 颜色列表（分页）|
@@ -131,14 +169,15 @@ colorflow-web/
 │   ├── style.css      # 深色主题样式
 │   └── app.js         # 前端交互逻辑
 └── tests/
-    └── test_app.py    # 集成测试（21 个用例）
+    ├── test_app.py    # API 集成测试
+    └── test_mcp.py    # MCP Server 冒烟测试
 ```
 
 ## 测试
 
 ```bash
 pip install pytest
-python -m pytest tests/ -q
+python -m pytest tests/ -q     # 34 个用例
 ```
 
 ## 相关项目

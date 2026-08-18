@@ -17,6 +17,10 @@
           <span class="logo-text">ColorFlow <span class="logo-plus">+</span> Pantone</span>
         </div>
         <div class="tagline">AI 矢量描图 · Pantone 色彩标准 · 印刷落地</div>
+        <div class="api-key-row">
+          <input type="password" id="apiKeyInput" class="api-key-input" placeholder="API Key（可选）" autocomplete="off" />
+          <button class="btn btn-small" id="apiKeyBtn">保存</button>
+        </div>
       </div>
     </header>
 
@@ -78,7 +82,9 @@
               <div class="svg-info hidden" id="svgInfo">
                 <span class="svg-size"></span>
                 <button class="btn btn-small" id="downloadSvg">下载 SVG</button>
+                <button class="btn btn-small btn-accent" id="colorMatchBtn">提取主色 & Pantone 匹配</button>
               </div>
+              <div class="palette-results hidden" id="paletteResults"></div>
             </div>
           </div>
         </div>

@@ -4,8 +4,9 @@ from flask import Flask, render_template, request, jsonify
 import math
 import os
 import base64
+import secrets
 
-from colorflow_sdk import ColorFlowSDK
+from colorflow_sdk import ColorFlowSDK, extract_svg_colors
 from colorflow_sdk.exceptions import ValidationError
 from mcp_print.tools.colors import (
     pantone_to_cmyk,
@@ -29,6 +30,28 @@ sdk = ColorFlowSDK(output_dir="/tmp/colorflow-output")
 
 # 允许的图片类型
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/bmp"}
+
+# API Key 认证：设置 COLORFLOW_API_KEY 后启用（生产环境必须设置）；未设置则开放（适合本地开发）
+COLORFLOW_API_KEY = os.getenv("COLORFLOW_API_KEY", "").strip()
+
+
+@app.before_request
+def require_api_key():
+    """保护 /api/* 路由：已配置 COLORFLOW_API_KEY 时，请求必须携带正确的 x-api-key 头。"""
+    if not COLORFLOW_API_KEY:
+        return  # 未配置密钥 → 不启用认证
+    if not request.path.startswith("/api/"):
+        return  # 页面 / 与静态资源保持公开
+
+    api_key = request.headers.get("x-api-key", "")
+    # 转 bytes 后恒定时间比较，避免非 ASCII 头抛 TypeError / 时序攻击
+    if not secrets.compare_digest(
+        api_key.encode("utf-8"), COLORFLOW_API_KEY.encode("utf-8")
+    ):
+        return (
+            jsonify({"error": "Unauthorized: missing or invalid API key"}),
+            401,
+        )
 
 
 def _int_arg(value, default):
@@ -62,6 +85,47 @@ def _require_hex(hex_color):
     return hex_color.upper()
 
 
+def _get_uploaded_image():
+    """校验并读取上传图片。
+
+    Returns:
+        (image_bytes, image_format) 成功；失败时返回 (None, (error_response, status))。
+    """
+    if "image" not in request.files:
+        return None, (jsonify({"error": "No image provided"}), 400)
+
+    file = request.files["image"]
+    if not file.filename:
+        return None, (jsonify({"error": "Empty file"}), 400)
+
+    content_type = file.content_type or "image/png"
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        return None, (
+            jsonify({"error": f"Unsupported file type: {content_type}"}),
+            415,
+        )
+
+    format_map = {
+        "image/png": "png",
+        "image/jpeg": "jpeg",
+        "image/webp": "webp",
+        "image/bmp": "bmp",
+    }
+    return (file.read(), format_map[content_type]), None
+
+
+def _trace_parameters():
+    """从表单读取描图参数（非法数值回退默认值）"""
+    return {
+        "mode": request.form.get("mode", "color"),
+        "filter_speckle": _int_arg(request.form.get("filter_speckle"), 4),
+        "color_precision": _int_arg(request.form.get("color_precision"), 6),
+        "layer_difference": _int_arg(request.form.get("layer_difference"), 64),
+        "corner_threshold": _int_arg(request.form.get("corner_threshold"), 60),
+        "path_precision": _int_arg(request.form.get("path_precision"), 7),
+    }
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -70,47 +134,18 @@ def index():
 @app.route("/api/trace", methods=["POST"])
 def trace_image():
     """位图 → SVG 矢量描图"""
-    if "image" not in request.files:
-        return jsonify({"error": "No image provided"}), 400
+    upload, err = _get_uploaded_image()
+    if err:
+        return err
 
-    file = request.files["image"]
-    if not file.filename:
-        return jsonify({"error": "Empty file"}), 400
-
-    # 校验文件类型
-    content_type = file.content_type or "image/png"
-    if content_type not in ALLOWED_CONTENT_TYPES:
-        return jsonify({"error": f"Unsupported file type: {content_type}"}), 415
-
-    # Read image bytes
-    image_bytes = file.read()
-
-    # Get parameters（非法数值回退默认值，不做 500）
-    mode = request.form.get("mode", "color")
-    filter_speckle = _int_arg(request.form.get("filter_speckle"), 4)
-    color_precision = _int_arg(request.form.get("color_precision"), 6)
-    layer_difference = _int_arg(request.form.get("layer_difference"), 64)
-    corner_threshold = _int_arg(request.form.get("corner_threshold"), 60)
-    path_precision = _int_arg(request.form.get("path_precision"), 7)
+    image_bytes, image_format = upload
+    params = _trace_parameters()
 
     try:
-        content_type_map = {
-            "image/png": "png",
-            "image/jpeg": "jpeg",
-            "image/webp": "webp",
-            "image/bmp": "bmp",
-        }
-        image_format = content_type_map.get(content_type, "png")
-
         svg_bytes = sdk.trace_bytes(
             image_bytes,
             image_format=image_format,
-            mode=mode,
-            filter_speckle=filter_speckle,
-            color_precision=color_precision,
-            layer_difference=layer_difference,
-            corner_threshold=corner_threshold,
-            path_precision=path_precision,
+            **params,
         )
         # Return as base64 for easier JS handling
         b64 = base64.b64encode(svg_bytes).decode("utf-8")
@@ -123,6 +158,62 @@ def trace_image():
         )
     except ValidationError as e:
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/trace/colors", methods=["POST"])
+def trace_colors():
+    """一键流水线：位图 → SVG → 提取主色 → Pantone 匹配（含 ΔE）"""
+    upload, err = _get_uploaded_image()
+    if err:
+        return err
+
+    image_bytes, image_format = upload
+    params = _trace_parameters()
+
+    try:
+        svg_bytes = sdk.trace_bytes(
+            image_bytes,
+            image_format=image_format,
+            **params,
+        )
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    try:
+        # 提取主色并逐一匹配 Pantone
+        colors = extract_svg_colors(svg_bytes, top_n=5)
+        palette = []
+        for c in colors:
+            lab_hex = _rgb_to_lab(*_hex_to_rgb(c["hex"]))
+            matches = []
+            for m in pantone_search(hex_color=c["hex"]).get("matches", [])[:3]:
+                lab_pantone = _cmyk_to_lab(m["c"], m["m"], m["y"], m["k"])
+                de = math.sqrt(
+                    sum((a - b) ** 2 for a, b in zip(lab_hex, lab_pantone))
+                )
+                matches.append(
+                    {
+                        "name": m["name"],
+                        "hex": m["hex"],
+                        "cmyk": [m["c"], m["m"], m["y"], m["k"]],
+                        "delta_e": round(de, 2),
+                    }
+                )
+            palette.append({"color": c, "pantone_matches": matches})
+
+        return jsonify(
+            {
+                "success": True,
+                "svg_base64": base64.b64encode(svg_bytes).decode("utf-8"),
+                "size": len(svg_bytes),
+                "palette": palette,
+                "color_count": len(palette),
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

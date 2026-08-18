@@ -524,3 +524,62 @@ body {
 }
 
 .footer a:hover { text-decoration: underline; }
+
+/* === 一键流水线：主色 & Pantone 匹配 === */
+.palette-results {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.palette-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.palette-item:last-of-type { border-bottom: none; }
+.palette-share {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-left: 6px;
+}
+.palette-actions {
+  margin-top: 10px;
+  text-align: right;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-accent:hover {
+  filter: brightness(1.1);
+}
+
+/* === API Key 输入 === */
+.api-key-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.api-key-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 12px;
+  width: 140px;
+}
+.api-key-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}

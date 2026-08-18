@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import app as app_module
 from app import app
 
 client = app.test_client()
@@ -162,6 +163,74 @@ class TestPantoneColors:
         data = resp.get_json()
         assert data["success"] is True
         assert all("red" in c.get("name", "").lower() for c in data["items"])
+
+
+class TestApiAuth:
+    """API Key 认证测试（默认未配置 → 开放；配置后保护 /api/*）"""
+
+    def test_disabled_by_default(self):
+        assert app_module.COLORFLOW_API_KEY == ""
+
+    def test_requires_key_when_configured(self, monkeypatch):
+        monkeypatch.setattr(app_module, "COLORFLOW_API_KEY", "test-secret-key")
+        # 无 key → 401
+        r = client.get("/api/pantone/colors")
+        assert r.status_code == 401
+        # 错误 key → 401
+        r = client.get("/api/pantone/colors", headers={"x-api-key": "wrong"})
+        assert r.status_code == 401
+        # 正确 key → 200
+        r = client.get("/api/pantone/colors", headers={"x-api-key": "test-secret-key"})
+        assert r.status_code == 200
+        # 非 ASCII key → 401（不应 500）
+        r = client.get("/api/pantone/colors", headers={"x-api-key": "中文😀"})
+        assert r.status_code == 401
+
+    def test_static_and_index_open_when_configured(self, monkeypatch):
+        monkeypatch.setattr(app_module, "COLORFLOW_API_KEY", "test-secret-key")
+        # 页面 / 与静态资源不受保护
+        assert client.get("/").status_code == 200
+        assert client.get("/static/app.js").status_code == 200
+
+
+class TestTraceColors:
+    """一键流水线：描图 → 主色 → Pantone 匹配"""
+
+    def test_no_image(self):
+        resp = client.post("/api/trace/colors", data={})
+        assert resp.status_code == 400
+
+    def test_unsupported_type(self):
+        resp = client.post(
+            "/api/trace/colors",
+            data={"image": (io.BytesIO(b"GIF89a"), "a.gif")},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 415
+
+    def test_pipeline_success(self):
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/trace/colors",
+                data={"image": (f, "sample.png")},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["svg_base64"]
+        assert data["color_count"] > 0
+        assert len(data["palette"]) == data["color_count"]
+        item = data["palette"][0]
+        # 主色与 Pantone 匹配字段
+        assert "color" in item and "hex" in item["color"]
+        assert "pantone_matches" in item
+        if item["pantone_matches"]:
+            m = item["pantone_matches"][0]
+            assert "name" in m and "hex" in m and "delta_e" in m
 
 
 class TestCostQuote:
