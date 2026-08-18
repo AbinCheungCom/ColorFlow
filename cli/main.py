@@ -115,7 +115,7 @@ mode 说明:
 
     # 其他选项
     parser.add_argument("-v", "--verbose", action="store_true", help="显示详细日志")
-    parser.add_argument("--version", action="version", version="ColorFlow CLI v0.1.0")
+    parser.add_argument("--version", action="version", version="ColorFlow CLI v0.2.0")
 
     args = parser.parse_args()
 

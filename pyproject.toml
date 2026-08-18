@@ -1,6 +1,6 @@
 [project]
 name = "colorflow-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI Agent 矢量描图 SDK（位图→SVG）"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -27,7 +27,7 @@ logger = logging.getLogger("colorflow-api")
 app = FastAPI(
     title="ColorFlow API",
     description="AI Agent 矢量描图 API — 位图 → SVG",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs" if COLORFLOW_ENABLE_DOCS else None,
     redoc_url="/redoc" if COLORFLOW_ENABLE_DOCS else None,
 )
@@ -52,7 +52,7 @@ app.include_router(trace.router, prefix="/api/v1", tags=["Vector Trace"])
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     """健康检查"""
-    return {"status": "ok", "service": "colorflow-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "colorflow-api", "version": "0.2.0"}
 
 
 @app.get("/", tags=["Root"])
@@ -60,7 +60,7 @@ async def root():
     """根路径"""
     return {
         "service": "ColorFlow API",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "docs": "/docs",
         "health": "/api/health",
     }

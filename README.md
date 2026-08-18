@@ -42,6 +42,13 @@ svg_bytes = sdk.trace_bytes(image_bytes, image_format="png")
 
 # 降级重试（mode 失败时按 color -> grey -> human 顺序自动降级）
 svg_path = sdk.trace_with_retry("input.png", mode="color", max_retries=3)
+
+# 提取 SVG 主色（供配色 / Pantone 匹配等下游使用）
+from colorflow_sdk import extract_svg_colors
+
+with open(svg_path, "rb") as f:
+    colors = extract_svg_colors(f.read(), top_n=5)
+# [{"hex": "#FF6432", "count": 2, "share": 0.5}, ...] 按出现频率降序
 ```
 
 ### 2. HTTP API
