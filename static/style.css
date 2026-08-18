@@ -1,52 +1,54 @@
 /* ============================================================
-   ColorFlow Web — Airtable DESIGN.md style
-   Editorial workflow-software UI: white canvas, near-black ink,
-   signature coral voltage. Ref: VoltAgent awesome-design-md/airtable
+   ColorFlow Web — Figma DESIGN.md style
+   Confident black-and-white editorial frame with oversized
+   pastel color blocks, pill CTAs, variable-weight type.
+   Ref: D:\Abin\DOC\FigmaDESIGN.md
    ============================================================ */
 
 /* === Reset & Base === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Airtable design tokens */
-  --canvas: #ffffff;          /* page floor */
-  --ink: #181d26;             /* strongest text / primary */
-  --body: #333840;            /* running text */
-  --muted: #41454d;           /* captions, footer, hints */
-  --hairline: #dddddd;        /* 1px borders */
-  --border-strong: #9297a0;
-  --surface-soft: #f8fafc;    /* cards, tabs rail */
-  --surface-strong: #e0e2e6;  /* heavy input / banner */
-  --primary: #181d26;         /* near-black primary CTA */
-  --primary-active: #0d1218;
-  --signature-coral: #aa2d00; /* brand voltage accent */
-  --signature-forest: #0a2e0e;
-  --signature-cream: #f5e9d4;
-  --signature-mint: #a8d8c4;
-  --signature-yellow: #f4d35e;
-  --signature-mustard: #d9a441;
-  --link: #1b61c9;            /* link blue — NOT the primary button */
-  --link-active: #1a3866;
-  --info: #254fad;
-  --info-border: #458fff;
-  --success: #006400;
-  --success-border: #39bf45;
-  --error: #b91c1c;
+  /* Figma design tokens */
+  --canvas: #ffffff;
+  --primary: #000000;          /* pure black — scarce, primary CTA only */
+  --on-primary: #ffffff;
+  --ink: #000000;              /* all type on light surfaces */
+  --inverse-ink: #ffffff;
+  --muted: #4a4a4a;            /* auxiliary hints (body hierarchy via weight, not gray) */
+  --hairline: #e6e6e6;         /* 1px borders: inputs, cards, tables */
+  --hairline-soft: #f1f1f1;    /* even subtler dividers */
+  --surface-soft: #f7f7f5;     /* off-white tiles */
 
-  /* Shape & rhythm (4px base) */
-  --radius-lg: 12px;   /* primary CTA, cards */
-  --radius-md: 10px;   /* content cards */
-  --radius-sm: 6px;    /* inputs */
-  --space-section: 96px;
+  /* pastel color blocks (story surfaces, used sparingly) */
+  --block-lime: #dceeb1;
+  --block-lilac: #c5b0f4;
+  --block-cream: #f4ecd6;
+  --block-mint: #c8e6cd;
+  --block-pink: #efd4d4;
+  --block-coral: #f3c9b6;
+  --block-navy: #1f1d3d;
+
+  --accent-magenta: #ff3d8b;   /* single-shot promo CTA */
+  --success: #1ea64a;
+  --error: #d64545;
+
+  /* Shape (Figma radius scale) */
+  --radius-sm: 6px;    /* small chips */
+  --radius-md: 8px;    /* inputs, list items, image frames */
+  --radius-lg: 24px;   /* pricing cards, color blocks */
+  --radius-pill: 50px; /* ALL text CTAs + tab toggles */
+  --radius-full: 9999px;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  font-family: 'Inter', 'figmaSans Fallback', -apple-system, BlinkMacSystemFont,
+    'SF Pro Display', system-ui, Helvetica, Arial, sans-serif;
   background: var(--canvas);
-  color: var(--body);
+  color: var(--ink);
   min-height: 100vh;
-  line-height: 1.5;
+  line-height: 1.45;
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -63,9 +65,9 @@ body {
 }
 
 .header-inner {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  height: 64px;                 /* top-nav token: 64px */
+  height: 56px;                 /* top-nav height token */
   display: flex;
   align-items: center;
   gap: 24px;
@@ -75,78 +77,72 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;              /* title-md */
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 540;
   color: var(--ink);
+  letter-spacing: -0.26px;
 }
 
-.logo-icon { font-size: 24px; }
-.logo-plus { color: var(--signature-coral); font-size: 14px; vertical-align: super; }
-
-.tagline {
-  font-size: 14px;              /* body-md */
-  color: var(--muted);
-}
+.logo-icon { font-size: 22px; }
+.logo-plus { color: var(--accent-magenta); font-size: 14px; vertical-align: super; }
 
 .main {
   flex: 1;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 48px 24px;           /* space-xl */
+  padding: 48px 24px;
   width: 100%;
 }
 
-/* === Tabs === */
+/* === Tabs (pill toggle, selected = primary surface) === */
 .tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 24px;
   background: var(--surface-soft);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-pill);
   padding: 4px;
 }
 
 .tab {
   flex: 1;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border: none;
   background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 10px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 480;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   font-family: inherit;
+  white-space: nowrap;
 }
 
-.tab:hover { color: var(--ink); }
-
 .tab.active {
-  background: var(--primary);   /* near-black pill — the confident choice */
-  color: #ffffff;
+  background: var(--primary);   /* selected tab = black pill, like pricing-tab-selected */
+  color: var(--on-primary);
 }
 
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* === Card === */
+/* === Card (Figma pricing-card: white, hairline, radius-lg, no shadow) === */
 .card {
   background: var(--canvas);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  padding: 32px;                /* space-xl */
+  padding: 32px;
 }
 
 .card-header { margin-bottom: 24px; }
 .card-header h2 {
-  font-size: 20px;              /* title-md */
-  font-weight: 500;             /* modest weight — never bold for its own sake */
+  font-size: 24px;              /* card-title 24/700 */
+  font-weight: 700;
   color: var(--ink);
   margin-bottom: 6px;
 }
-.card-desc { font-size: 14px; color: var(--muted); }
+.card-desc { font-size: 16px; font-weight: 330; color: var(--ink); }
 
 /* === Trace Layout === */
 .trace-layout {
@@ -162,10 +158,10 @@ body {
 
 .trace-input { display: flex; flex-direction: column; gap: 16px; }
 
-/* === Upload Zone === */
+/* === Upload Zone (surface-soft tile, hairline dashed) === */
 .upload-zone {
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius-md);
+  border: 2px dashed var(--hairline);
+  border-radius: var(--radius-lg);
   min-height: 200px;
   display: flex;
   align-items: center;
@@ -178,8 +174,8 @@ body {
 }
 
 .upload-zone:hover, .upload-zone.dragover {
-  border-color: var(--link);
-  background: #f0f6ff;
+  border-color: var(--primary);
+  background: var(--block-cream);
 }
 
 .upload-zone.dragover { border-style: solid; }
@@ -196,13 +192,13 @@ body {
 .upload-icon {
   width: 56px;
   height: 56px;
-  color: var(--muted);
+  color: var(--ink);
   transition: color 0.15s;
 }
 .upload-zone:hover .upload-icon,
-.upload-zone.dragover .upload-icon { color: var(--link); }
-.upload-text { font-size: 15px; color: var(--ink); font-weight: 500; }
-.upload-hint { font-size: 12px; color: var(--muted); }
+.upload-zone.dragover .upload-icon { color: var(--primary); }
+.upload-text { font-size: 18px; font-weight: 330; color: var(--ink); }
+.upload-hint { font-size: 13px; font-weight: 330; color: var(--muted); }
 
 .preview-img {
   max-width: 100%;
@@ -220,20 +216,21 @@ body {
   gap: 12px;
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 16px;
 }
 
 .param-row { display: flex; align-items: center; gap: 12px; }
 
 .param-row label {
-  font-size: 14px;
-  color: var(--muted);
+  font-size: 16px;
+  font-weight: 330;
+  color: var(--ink);
   min-width: 90px;
   white-space: nowrap;
 }
 
-/* Inputs — Airtable text-input: white, hairline, radius-sm, 44px */
+/* Inputs — Figma text-input: white, hairline, radius-md, 48px tap target */
 .param-row select,
 .param-row input[type="number"],
 .search-input,
@@ -242,18 +239,19 @@ body {
 .color-picker-input {
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--ink);
-  font-size: 14px;              /* body-md */
+  font-size: 16px;
+  font-weight: 330;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .param-row select,
-.param-row input[type="number"] { flex: 1; padding: 7px 12px; }
-.search-input { flex: 1; padding: 12px 16px; }
-.size-inputs input { width: 80px; padding: 7px 12px; text-align: center; }
+.param-row input[type="number"] { flex: 1; padding: 8px 12px; min-height: 44px; }
+.search-input { flex: 1; padding: 12px 14px; }
+.size-inputs input { width: 80px; padding: 8px 12px; text-align: center; }
 
 .param-row input[type="range"] {
   flex: 1;
@@ -261,83 +259,95 @@ body {
   height: 4px;
 }
 
+/* Focus = ring, not fill change (per Figma text-input-focused) */
 .search-input:focus,
 .param-row select:focus,
 .param-row input[type="number"]:focus,
 .size-inputs input:focus,
 .api-key-input:focus,
 .color-picker-input:focus {
-  border-color: var(--info-border);   /* text-input-focus: info-blue outline */
-  box-shadow: 0 0 0 2px rgba(69, 143, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
 }
 
 .search-input::placeholder { color: var(--muted); }
 
 .size-inputs { display: flex; align-items: center; gap: 8px; flex: 1; }
 
-/* === Buttons === */
+/* === Buttons (ALL pills) === */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px 24px;           /* button-primary padding */
-  border-radius: var(--radius-lg);   /* rounded.lg — 12px */
-  font-size: 16px;              /* typography.button */
-  font-weight: 500;
+  padding: 10px 20px;           /* button-primary padding */
+  border-radius: var(--radius-pill);   /* pill — the only button shape */
+  font-size: 16px;              /* button ~20 but tool-appropriate */
+  font-weight: 480;
+  letter-spacing: -0.1px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, transform 0.05s;
   font-family: inherit;
   width: 100%;
   border: 1px solid transparent;
 }
 
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
 
 .btn-primary {
-  background: var(--primary);   /* near-black — NOT link blue */
-  color: #ffffff;
-  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
 }
-.btn-primary:hover:not(:disabled) { background: var(--primary-active); }
-.btn-primary:active { background: var(--primary-active); }
+.btn-primary:hover:not(:disabled) { background: #1a1a1a; }
 
 .btn-secondary {
   background: var(--canvas);
   color: var(--ink);
-  border: 1px solid var(--hairline);   /* hairline outline button */
+  border: 1px solid var(--hairline);
 }
-.btn-secondary:hover:not(:disabled) { border-color: var(--border-strong); }
+.btn-secondary:hover:not(:disabled) { border-color: var(--primary); }
 
 .btn-small {
-  padding: 8px 16px;
+  padding: 8px 18px;
   font-size: 14px;
   width: auto;
 }
 
 .btn-loader { font-size: 14px; }
 
+/* accent = pastel color block (brand story moment) */
+.btn-accent {
+  background: var(--block-lime);
+  color: var(--ink);
+  border-color: var(--block-lime);
+}
+.btn-accent:hover:not(:disabled) { background: #cddf9c; }
+
 /* === SVG Output === */
 .trace-output { display: flex; flex-direction: column; gap: 12px; }
 
 .output-label {
-  font-size: 14px;              /* caption */
-  font-weight: 500;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
   color: var(--muted);
-  letter-spacing: 0.16px;
 }
 
 .svg-preview {
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   min-height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.svg-placeholder { color: var(--muted); font-size: 14px; }
+.svg-placeholder { color: var(--muted); font-size: 16px; font-weight: 330; }
 
 .svg-preview svg,
 .svg-preview img {
@@ -355,7 +365,7 @@ body {
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .svg-info .svg-size { margin-right: auto; color: var(--muted); }
@@ -370,7 +380,7 @@ body {
   align-items: center;
   background: var(--surface-soft);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 20px;
 }
 
@@ -385,8 +395,8 @@ body {
 .color-details { flex: 1; }
 
 .color-name {
-  font-size: 22px;              /* title-lg-ish */
-  font-weight: 500;
+  font-size: 24px;              /* card-title */
+  font-weight: 700;
   color: var(--ink);
   margin-bottom: 12px;
 }
@@ -396,26 +406,27 @@ body {
 .color-value-item { display: flex; flex-direction: column; gap: 4px; }
 
 .color-value-item .label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.6px;
   color: var(--muted);
 }
 
 .color-value-item .value {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 480;
   color: var(--ink);
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .error-msg {
   padding: 12px 16px;
-  background: #fdf1f0;
-  border: 1px solid var(--error);
-  border-radius: var(--radius-sm);
-  color: var(--error);
-  font-size: 13px;
+  background: var(--block-coral);
+  border-radius: var(--radius-md);
+  color: #7a2418;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 /* === Color Match === */
@@ -425,7 +436,7 @@ body {
   width: 48px;
   height: 48px;
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   padding: 2px;
   flex-shrink: 0;
@@ -437,7 +448,8 @@ body {
   text-align: center;
   color: var(--muted);
   padding: 40px;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 330;
 }
 
 .match-item {
@@ -459,20 +471,20 @@ body {
 }
 
 .match-info { flex: 1; min-width: 0; }
-.match-name { font-size: 14px; font-weight: 500; color: var(--ink); }
-.match-hex { font-size: 12px; color: var(--muted); font-family: monospace; }
+.match-name { font-size: 16px; font-weight: 480; color: var(--ink); }
+.match-hex { font-size: 13px; font-weight: 330; color: var(--muted); font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
 .match-de {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 480;
   padding: 3px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   white-space: nowrap;
 }
-.match-de.excellent { background: #e6f5e6; color: var(--success); }
-.match-de.good { background: #e8f1ff; color: var(--info); }
-.match-de.fair { background: #fbf3d9; color: #8a6a12; }
-.match-de.poor { background: #fdf1f0; color: var(--error); }
+.match-de.excellent { background: #dff4e5; color: var(--success); }
+.match-de.good { background: var(--block-mint); color: #156b38; }
+.match-de.fair { background: var(--block-cream); color: #6d5810; }
+.match-de.poor { background: var(--block-coral); color: #8a2a1a; }
 
 /* === Cost Form === */
 .cost-form {
@@ -484,9 +496,8 @@ body {
 
 .cost-result {
   margin-top: 20px;
-  background: var(--surface-soft);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  background: var(--block-lime);   /* color-block moment: lime FAQ/story panel */
+  border-radius: var(--radius-lg);
   padding: 20px;
 }
 
@@ -494,21 +505,20 @@ body {
 
 .cost-result td {
   padding: 8px 0;
-  font-size: 14px;
-  color: var(--body);
-  border-bottom: 1px solid var(--hairline);
+  font-size: 16px;
+  font-weight: 330;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .cost-result td:last-child {
   text-align: right;
-  font-weight: 500;
-  color: var(--ink);
+  font-weight: 480;
 }
 
 .cost-result .total-row td {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
   border: none;
   padding-top: 12px;
 }
@@ -516,55 +526,50 @@ body {
 /* === Footer === */
 .footer {
   text-align: center;
-  padding: 32px;                /* space-xl */
-  font-size: 14px;              /* body-md */
-  color: var(--muted);
+  padding: 48px 24px;
+  font-size: 14px;
+  font-weight: 330;
+  color: var(--ink);
   border-top: 1px solid var(--hairline);
 }
 
-.footer a { color: var(--link); text-decoration: none; }
-.footer a:hover { color: var(--link-active); }
+.footer a { color: var(--ink); font-weight: 480; text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
 
-/* === 一键流水线：主色 & Pantone 匹配 === */
+/* === 潘通色卡（palette results） === */
 .palette-results {
   margin-top: 12px;
-  padding: 16px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--canvas);
+  display: grid;
+  gap: 12px;
 }
 
 .palette-title {
-  font-weight: 500;
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-weight: 540;
+  font-size: 18px;
+  margin-bottom: 4px;
   color: var(--ink);
+  letter-spacing: -0.26px;
 }
 
 .palette-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--hairline);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
 }
-.palette-item:last-of-type { border-bottom: none; }
 
 .palette-share {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   color: var(--muted);
   font-size: 12px;
-  margin-left: 6px;
+  margin-left: 8px;
 }
 
 .palette-actions { margin-top: 12px; text-align: right; }
-
-/* accent = brand voltage moment: signature coral */
-.btn-accent {
-  background: var(--signature-coral);
-  color: #ffffff;
-  border: 1px solid var(--signature-coral);
-}
-.btn-accent:hover:not(:disabled) { background: #8f2600; }
+.palette-actions .btn { width: auto; }
 
 /* === API Key 输入 === */
 .api-key-row {
@@ -576,12 +581,11 @@ body {
 .api-key-input {
   width: 160px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ============================================================
-   Responsive — mobile (<768px), tablet (768-1024px)
-   Ref: Airtable DESIGN.md responsive section
+   Responsive — Figma breakpoints
    ============================================================ */
 
 @media (max-width: 1024px) {
@@ -592,28 +596,22 @@ body {
 @media (max-width: 768px) {
   body { font-size: 15px; }
 
-  /* Header: tighten */
   .header { padding: 0 16px; }
-  .header-inner { gap: 10px; height: 56px; }
+  .header-inner { gap: 10px; height: 52px; }
   .logo { font-size: 17px; gap: 6px; }
-  .logo-icon { font-size: 20px; }
   .api-key-row { gap: 4px; }
   .api-key-input { width: 110px; }
 
-  /* Main & cards */
   .main { padding: 20px 14px; }
-  .card { padding: 18px; border-radius: var(--radius-md); }
-  .card-header h2 { font-size: 18px; }
+  .card { padding: 18px; border-radius: 16px; }
+  .card-header h2 { font-size: 20px; }
 
-  /* Tabs: horizontal scroll to avoid crowding */
   .tabs { overflow-x: auto; padding: 3px; margin-bottom: 16px; }
-  .tab { flex: 1 0 auto; padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+  .tab { flex: 1 0 auto; padding: 8px 12px; font-size: 14px; }
 
-  /* Upload zone */
   .upload-zone { min-height: 150px; }
   .upload-icon { width: 44px; height: 44px; }
 
-  /* Trace: stack, buttons full width */
   .trace-layout { grid-template-columns: 1fr; gap: 16px; }
   .svg-info { flex-wrap: wrap; justify-content: flex-start; row-gap: 8px; }
   .svg-info .svg-size { margin-right: auto; }
@@ -621,7 +619,6 @@ body {
   .palette-actions { text-align: center; }
   .palette-actions .btn { width: 100%; }
 
-  /* Forms: label above control on narrow screens */
   .param-row { flex-direction: column; align-items: stretch; gap: 6px; }
   .param-row label { min-width: 0; }
   .size-inputs { justify-content: flex-start; }
@@ -629,18 +626,14 @@ body {
   .color-input-wrap { flex-direction: column; align-items: stretch; }
   .color-picker-input { width: 100%; height: 48px; }
 
-  /* Pantone result */
   .result-card { flex-direction: column; align-items: stretch; }
   .color-swatch { width: 100%; height: 120px; }
-  .color-name { font-size: 19px; }
+  .color-name { font-size: 20px; }
 
-  /* Match list */
   .match-item { flex-wrap: wrap; }
 
-  /* Cost */
   .cost-form { max-width: none; }
   .cost-result { padding: 14px; }
 
-  /* Footer */
   .footer { padding: 24px 16px; font-size: 13px; }
 }
