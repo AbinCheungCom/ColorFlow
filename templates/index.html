@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ColorFlow + Pantone - AI 矢量描图 & 色彩管理</title>
+  <title>ColorFlow</title>
   <link rel="stylesheet" href="/static/style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
@@ -13,10 +13,8 @@
     <header class="header">
       <div class="header-inner">
         <div class="logo">
-          <span class="logo-icon">🎨</span>
-          <span class="logo-text">ColorFlow <span class="logo-plus">+</span> Pantone</span>
+          <span class="logo-text">ColorFlow </span>
         </div>
-        <div class="tagline">AI 矢量描图 · Pantone 色彩标准 · 印刷落地</div>
         <div class="api-key-row">
           <input type="password" id="apiKeyInput" class="api-key-input" placeholder="API Key（可选）" autocomplete="off" />
           <button class="btn btn-small" id="apiKeyBtn">保存</button>
@@ -45,7 +43,7 @@
               <div class="upload-zone" id="uploadZone">
                 <input type="file" id="traceFile" accept="image/*" hidden />
                 <div class="upload-placeholder">
-                  <div class="upload-icon">📤</div>
+                  <svg class="upload-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="56" height="56" aria-hidden="true"><path fill="currentColor" d="M853.344 341.344C853.344 294.4 814.944 256 768 256s-85.344 38.4-85.344 85.344 38.4 85.344 85.344 85.344 85.344-38.4 85.344-85.344z"/><path fill="currentColor" d="M0 85.344v853.344h512v-85.344H85.344V742.4l256-256L512 657.056l59.744-59.744-230.4-230.4-256 256V170.656h853.344v298.656l85.344 85.344V85.312z"/><path fill="currentColor" d="M951.456 840.544L1011.2 780.8l-200.544-200.544-200.544 200.544 59.744 59.744L768 742.4v238.944h85.344V742.4z"/></svg>
                   <div class="upload-text">点击上传或拖拽图片</div>
                   <div class="upload-hint">PNG / JPG / WebP · 最大 10MB</div>
                 </div>
@@ -197,7 +195,7 @@
     </main>
 
     <footer class="footer">
-      ColorFlow MVP · Powered by VTracer + mcp-print · 
+      ColorFlow  · 
       <a href="https://github.com/Abinius/ColorFlow" target="_blank">GitHub</a>
     </footer>
   </div>
