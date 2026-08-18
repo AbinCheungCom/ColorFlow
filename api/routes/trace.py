@@ -1,6 +1,6 @@
 """Trace 接口路由"""
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
 from api.config import (
@@ -16,6 +16,7 @@ router = APIRouter()
 
 @router.post("/trace")
 async def trace_image(
+    request: Request,
     image: UploadFile = File(..., description="图片文件（PNG/JPG/WebP）"),
     mode: str = Form("color", description="描图模式: color/grey/human"),
     colormode: str = Form("rgb8", description="颜色模式: rgb8/rgb16/mono/grey/grey16"),
@@ -45,10 +46,17 @@ async def trace_image(
             detail=f"Unsupported file type: {image.content_type}. Allowed: PNG, JPEG, WebP, BMP",
         )
 
-    # 读取图片内容
-    image_bytes = await image.read()
+    # 先按 Content-Length 预检，避免把超大文件先读进内存（内存 DoS）
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit():
+        if int(content_length) > COLORFLOW_MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max size: {COLORFLOW_MAX_FILE_SIZE // (1024 * 1024)}MB",
+            )
 
-    # 检查文件大小
+    # 受限读取（Content-Length 可能被伪造或缺失，这里兜底截断）
+    image_bytes = await image.read(COLORFLOW_MAX_FILE_SIZE + 1)
     if len(image_bytes) > COLORFLOW_MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,

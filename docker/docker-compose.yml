@@ -8,9 +8,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - COLORFLOW_API_KEY=${COLORFLOW_API_KEY:-mv-p4ss-k3y-2026}
+      # 缺失时 docker compose 直接报错，避免注入弱默认 key
+      - COLORFLOW_API_KEY=${COLORFLOW_API_KEY:?请通过环境变量设置 COLORFLOW_API_KEY}
       - COLORFLOW_OUTPUT_DIR=/data/output
-      - COLORFLOW_TIMEOUT=30
     volumes:
       - ../data:/data
     healthcheck:

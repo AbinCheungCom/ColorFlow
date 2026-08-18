@@ -2,7 +2,8 @@
 
 import secrets
 
-from fastapi import HTTPException, Request
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.config import COLORFLOW_API_KEY
@@ -20,11 +21,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
             api_key = request.headers.get("x-api-key")
             if not api_key:
-                raise HTTPException(status_code=401, detail="Missing API key")
+                # 注意：BaseHTTPMiddleware 中 raise HTTPException 会作为异常传播
+                # （得到 500 而非 401），必须显式返回响应
+                return JSONResponse(status_code=401, content={"detail": "Missing API key"})
 
-            # 常量时间比较，防止时序攻击
-            if not secrets.compare_digest(api_key, COLORFLOW_API_KEY):
-                raise HTTPException(status_code=401, detail="Invalid API key")
+            # 先转 bytes 再恒定时间比较：
+            # secrets.compare_digest 对 str 要求 ASCII，非 ASCII 头会抛 TypeError（导致 500）
+            if not secrets.compare_digest(
+                api_key.encode("utf-8"), COLORFLOW_API_KEY.encode("utf-8")
+            ):
+                return JSONResponse(
+                    status_code=401, content={"detail": "Invalid API key"}
+                )
 
-        response = await call_next(request)
-        return response
+        return await call_next(request)

@@ -29,12 +29,12 @@ api = [
     "uvicorn>=0.27.0",
     "python-multipart>=0.0.6",
     "pydantic>=2.0.0",
-    "httpx>=0.25.0",
 ]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
+    "httpx>=0.25.0",  # fastapi TestClient 运行时依赖
 ]
 
 [project.scripts]
@@ -44,6 +44,9 @@ colorflow = "cli.main:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["colorflow_sdk", "cli"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"
@@ -51,6 +54,10 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PT"]
 ignore = ["E501"]
+
+# FastAPI 的 File()/Form() 作为默认值是框架规范写法，属 B008 已知误报
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Form"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

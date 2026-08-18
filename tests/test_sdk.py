@@ -5,7 +5,7 @@ import os
 import pytest
 
 from colorflow_sdk import ColorFlowSDK
-from colorflow_sdk.exceptions import ValidationError
+from colorflow_sdk.exceptions import TraceError, ValidationError
 
 
 class TestColorFlowSDK:
@@ -75,6 +75,80 @@ class TestColorFlowSDK:
         version = ColorFlowSDK.get_version()
         assert version is not None
         assert isinstance(version, str)
+
+
+class TestTraceWithRetry:
+    """trace_with_retry 降级重试测试"""
+
+    def test_downgrades_on_trace_error(self, sdk, monkeypatch):
+        """mode 失败时应按 color -> grey -> human 顺序降级"""
+        calls = []
+
+        def fake_trace(image_path, mode="color", **kwargs):
+            calls.append(mode)
+            if mode == "color":
+                raise TraceError("simulated color failure")
+            return "/tmp/fake.svg"
+
+        monkeypatch.setattr(sdk, "trace", fake_trace)
+        result = sdk.trace_with_retry("img.png", mode="color", max_retries=3)
+
+        assert result == "/tmp/fake.svg"
+        assert calls == ["color", "grey"]  # color 失败后降级到 grey 成功
+
+    def test_exhausts_all_modes(self, sdk, monkeypatch):
+        """所有 mode 都失败时应抛出 TraceError"""
+        calls = []
+
+        def fake_trace(image_path, mode="color", **kwargs):
+            calls.append(mode)
+            raise TraceError("always fails")
+
+        monkeypatch.setattr(sdk, "trace", fake_trace)
+        with pytest.raises(TraceError):
+            sdk.trace_with_retry("img.png", mode="color", max_retries=3)
+
+        assert calls == ["color", "grey", "human"]
+
+    def test_start_from_non_first_mode(self, sdk, monkeypatch):
+        """初始 mode 不是 color 时，应从该 mode 开始并按序降级"""
+        calls = []
+
+        def fake_trace(image_path, mode="color", **kwargs):
+            calls.append(mode)
+            if mode == "grey":
+                raise TraceError("grey fails")
+            return "/tmp/fake.svg"
+
+        monkeypatch.setattr(sdk, "trace", fake_trace)
+        result = sdk.trace_with_retry("img.png", mode="grey", max_retries=3)
+
+        assert result == "/tmp/fake.svg"
+        assert calls == ["grey", "human"]  # grey 失败 -> human 成功，不回到 color
+
+    def test_validation_error_not_retried(self, sdk, monkeypatch):
+        """参数校验错误（ValidationError）不应重试"""
+        def fake_trace(image_path, mode="color", **kwargs):
+            raise ValidationError("bad param")
+
+        monkeypatch.setattr(sdk, "trace", fake_trace)
+        with pytest.raises(ValidationError):
+            sdk.trace_with_retry("img.png", mode="color", max_retries=3)
+
+    def test_max_retries_capped_by_modes(self, sdk, monkeypatch):
+        """重试次数不应超出剩余可用 mode 数量"""
+        calls = []
+
+        def fake_trace(image_path, mode="color", **kwargs):
+            calls.append(mode)
+            raise TraceError("always fails")
+
+        monkeypatch.setattr(sdk, "trace", fake_trace)
+        with pytest.raises(TraceError):
+            # max_retries=10 但只有 color/grey/human 三个可用模式
+            sdk.trace_with_retry("img.png", mode="color", max_retries=10)
+
+        assert len(calls) == 3
 
 
 class TestTraceIntegration:

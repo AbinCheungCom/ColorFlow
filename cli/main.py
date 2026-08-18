@@ -166,8 +166,12 @@ mode 说明:
         if args.output != svg_path:
             import shutil
 
-            shutil.copy(svg_path, args.output)
-            os.unlink(svg_path)
+            try:
+                shutil.copy(svg_path, args.output)
+            finally:
+                # 无论复制成功与否都清理 SDK 生成的临时 SVG
+                if os.path.exists(svg_path):
+                    os.unlink(svg_path)
             logger.info(f"✓ SVG 已保存至: {args.output}")
         else:
             logger.info(f"✓ SVG 已保存至: {svg_path}")

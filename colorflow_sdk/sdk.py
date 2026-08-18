@@ -38,8 +38,10 @@ class ColorFlowSDK:
         if must_exist and not os.path.exists(path):
             raise ValidationError(f"Input file not found: {path}")
 
-        # 防止路径遍历
-        if ".." in path:
+        # 规范化后若仍逃逸到当前目录之外（形如 ../../x 或 a/../..），视为路径遍历。
+        # 用 normpath 而非字符串包含判断，避免误伤 folder..png 这类正常文件名。
+        normalized = os.path.normpath(path)
+        if normalized.startswith(".."):
             raise ValidationError(f"Path traversal not allowed: {path}")
 
     def _validate_mode(self, mode: str) -> None:
@@ -206,39 +208,47 @@ class ColorFlowSDK:
 
         return svg_bytes
 
-    def trace_with_retry(self, image_path: str, max_retries: int = 3, **kwargs) -> str:
+    def trace_with_retry(
+        self,
+        image_path: str,
+        max_retries: int = 3,
+        mode: str = "color",
+        **kwargs,
+    ) -> str:
         """
         带降级重试的 VTracer 调用
         按 color -> grey -> human 顺序降级
 
         Args:
             image_path: 输入图片路径
-            max_retries: 最大重试次数
-            **kwargs: 同 trace() 的参数
+            max_retries: 最大尝试次数（含降级；不超过剩余可用 mode 数）
+            mode: 初始描图模式，失败时按 MODES 顺序降级到下一个
+            **kwargs: 同 trace() 的参数（mode 已为独立参数，不要重复传入）
 
         Returns:
             输出 SVG 文件路径
         """
-        last_error = None
-        modes = list(self.MODES)
+        self._validate_mode(mode)
+        # 兼容旧调用：若 kwargs 中仍残留 mode（如 dict 解包传入），以显式参数为准
+        kwargs.pop("mode", None)
 
-        for i in range(min(max_retries, len(modes))):
-            mode = kwargs.get("mode", "color")
+        last_error = None
+        start_idx = self.MODES.index(mode)
+        # 至少尝试 1 次，且不超出 modes 列表尾部
+        attempts = min(max(max_retries, 1), len(self.MODES) - start_idx)
+
+        for offset in range(attempts):
+            current_mode = self.MODES[start_idx + offset]
             try:
-                return self.trace(image_path, mode=mode, **kwargs)
+                return self.trace(image_path, mode=current_mode, **kwargs)
             except TraceError as e:
                 last_error = e
-                # 降级到下一个 mode
-                if "mode" not in kwargs:
-                    current_idx = modes.index(mode) if mode in modes else 0
-                    if current_idx + 1 < len(modes):
-                        kwargs["mode"] = modes[current_idx + 1]
                 continue
             except ValidationError:
                 raise  # 参数错误不重试
 
         raise TraceError(
-            f"VTracer failed after {max_retries} retries, last error: {last_error}"
+            f"VTracer failed after {attempts} retries, last error: {last_error}"
         ) from last_error
 
     @staticmethod

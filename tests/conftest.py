@@ -1,8 +1,12 @@
 """pytest fixtures"""
 
+import os
 from pathlib import Path
 
 import pytest
+
+# 必须在导入 api 模块之前设置：api.config 在 import 时校验必需的环境变量
+os.environ.setdefault("COLORFLOW_API_KEY", "test-api-key")
 
 # 测试素材目录
 TEST_ASSETS = Path(__file__).parent.parent / "assets"

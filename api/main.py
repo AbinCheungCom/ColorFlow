@@ -8,6 +8,10 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.config import (
+    COLORFLOW_ALLOWED_ORIGINS,
+    COLORFLOW_ENABLE_DOCS,
+)
 from api.middleware.auth import AuthMiddleware
 from api.routes import trace
 
@@ -24,15 +28,16 @@ app = FastAPI(
     title="ColorFlow API",
     description="AI Agent 矢量描图 API — 位图 → SVG",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if COLORFLOW_ENABLE_DOCS else None,
+    redoc_url="/redoc" if COLORFLOW_ENABLE_DOCS else None,
 )
 
-# CORS（按需配置）
+# CORS：认证走 x-api-key 头（非 cookie），因此不携带凭据。
+# 允许的来源由环境变量控制（默认全部），与 allow_credentials 不冲突。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=COLORFLOW_ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
