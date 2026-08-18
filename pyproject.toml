@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "vtracer>=0.6.0",
+    "vtracer>=0.6.15",
 ]
 
 [project.optional-dependencies]
