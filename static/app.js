@@ -1,3 +1,10 @@
+// === XSS 防护：把任意字符串安全插入 innerHTML ===
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str ?? '');
+  return div.innerHTML;
+}
+
 // === Tab Navigation ===
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -83,10 +90,10 @@ traceBtn.addEventListener('click', async () => {
       svgInfo.classList.remove('hidden');
       svgInfo.querySelector('.svg-size').textContent = `${(data.size / 1024).toFixed(1)} KB`;
     } else {
-      svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">错误: ${data.error}</div>`;
+      svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">错误: ${escapeHtml(data.error)}</div>`;
     }
   } catch (e) {
-    svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">请求失败: ${e}</div>`;
+    svgPreview.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">请求失败: ${escapeHtml(e)}</div>`;
   } finally {
     traceBtn.disabled = false;
     traceBtn.querySelector('.btn-text').classList.remove('hidden');
@@ -170,12 +177,12 @@ matchBtn.addEventListener('click', async () => {
         const gradeClass = m.delta_e < 1 ? 'excellent' : m.delta_e < 3 ? 'good' : m.delta_e < 6 ? 'fair' : 'poor';
         matchResults.innerHTML += `
           <div class="match-item">
-            <div class="match-swatch" style="background:${m.hex}"></div>
+            <div class="match-swatch" style="background:${escapeHtml(m.hex)}"></div>
             <div class="match-info">
-              <div class="match-name">${m.name}</div>
-              <div class="match-hex">${m.hex} · CMYK ${m.cmyk.join('/')}</div>
+              <div class="match-name">${escapeHtml(m.name)}</div>
+              <div class="match-hex">${escapeHtml(m.hex)} · CMYK ${escapeHtml(m.cmyk.join('/'))}</div>
             </div>
-            <div class="match-de ${gradeClass}">ΔE ${m.delta_e}</div>
+            <div class="match-de ${gradeClass}">ΔE ${escapeHtml(m.delta_e)}</div>
           </div>
         `;
       });
@@ -222,10 +229,10 @@ costBtn.addEventListener('click', async () => {
       html += '</table>';
       costResult.innerHTML = html;
     } else {
-      costResult.innerHTML = `<div class="error-msg">${data.error}</div>`;
+      costResult.innerHTML = `<div class="error-msg">${escapeHtml(data.error)}</div>`;
     }
   } catch (e) {
-    costResult.innerHTML = `<div class="error-msg">请求失败: ${e}</div>`;
+    costResult.innerHTML = `<div class="error-msg">请求失败: ${escapeHtml(e)}</div>`;
   }
 });
 

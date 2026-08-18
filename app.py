@@ -6,6 +6,7 @@ import os
 import base64
 
 from colorflow_sdk import ColorFlowSDK
+from colorflow_sdk.exceptions import ValidationError
 from mcp_print.tools.colors import (
     pantone_to_cmyk,
     pantone_search,
@@ -26,6 +27,41 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 sdk = ColorFlowSDK(output_dir="/tmp/colorflow-output")
 
 
+# 允许的图片类型
+ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/bmp"}
+
+
+def _int_arg(value, default):
+    """解析 int 表单/查询参数，非法值返回默认值（不抛异常）"""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _float_arg(value, default):
+    """解析 float 表单/查询参数，非法值返回默认值"""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _require_hex(hex_color):
+    """校验 HEX 颜色格式（#RRGGBB），非法则返回 None"""
+    if not hex_color:
+        return None
+    if not hex_color.startswith("#"):
+        hex_color = "#" + hex_color
+    if len(hex_color) != 7:
+        return None
+    try:
+        int(hex_color[1:], 16)
+    except ValueError:
+        return None
+    return hex_color.upper()
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -41,20 +77,23 @@ def trace_image():
     if not file.filename:
         return jsonify({"error": "Empty file"}), 400
 
+    # 校验文件类型
+    content_type = file.content_type or "image/png"
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        return jsonify({"error": f"Unsupported file type: {content_type}"}), 415
+
     # Read image bytes
     image_bytes = file.read()
 
-    # Get parameters
+    # Get parameters（非法数值回退默认值，不做 500）
     mode = request.form.get("mode", "color")
-    filter_speckle = int(request.form.get("filter_speckle", 4))
-    color_precision = int(request.form.get("color_precision", 6))
-    layer_difference = int(request.form.get("layer_difference", 64))
-    corner_threshold = int(request.form.get("corner_threshold", 60))
-    path_precision = int(request.form.get("path_precision", 7))
+    filter_speckle = _int_arg(request.form.get("filter_speckle"), 4)
+    color_precision = _int_arg(request.form.get("color_precision"), 6)
+    layer_difference = _int_arg(request.form.get("layer_difference"), 64)
+    corner_threshold = _int_arg(request.form.get("corner_threshold"), 60)
+    path_precision = _int_arg(request.form.get("path_precision"), 7)
 
     try:
-        # Infer image format from content-type
-        content_type = file.content_type or "image/png"
         content_type_map = {
             "image/png": "png",
             "image/jpeg": "jpeg",
@@ -82,6 +121,8 @@ def trace_image():
                 "size": len(svg_bytes),
             }
         )
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -90,12 +131,11 @@ def trace_image():
 def match_pantone():
     """HEX → Pantone 匹配"""
     data = request.get_json()
-    hex_color = data.get("hex_color", "").strip()
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+    hex_color = _require_hex(data.get("hex_color", "").strip())
     if not hex_color:
-        return jsonify({"error": "No hex_color provided"}), 400
-
-    if not hex_color.startswith("#"):
-        hex_color = "#" + hex_color
+        return jsonify({"error": "Invalid hex_color. Expected format: #RRGGBB"}), 400
 
     try:
         results = pantone_search(hex_color=hex_color)
@@ -167,9 +207,13 @@ def pantone_lookup():
 @app.route("/api/pantone/colors", methods=["GET"])
 def list_colors():
     """获取所有 Pantone 颜色（分页）"""
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 50))
+    page = _int_arg(request.args.get("page"), 1)
+    limit = _int_arg(request.args.get("limit"), 50)
     search = request.args.get("search", "").strip()
+
+    # 分页参数边界约束
+    page = max(page, 1)
+    limit = min(max(limit, 1), 200)
 
     try:
         from mcp_print.tools.colors import _load_db
@@ -203,6 +247,8 @@ def list_colors():
 def cost_quote():
     """印刷报价"""
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
     try:
         result = print_cost_estimate(
             width_mm=float(data.get("width", 210)),
@@ -212,19 +258,29 @@ def cost_quote():
             paper_gsm=float(data.get("gsm", 120)),
             print_method=data.get("method", "offset"),
         )
+        # 映射为前端期望的 USD 命名字段（mcp-print 返回 ink_cost/total_cost/...，无 _usd 后缀）
+        payload = {
+            "ink_cost_usd": result["ink_cost"],
+            "setup_cost_usd": result["setup_cost"],
+            "paper_cost_usd": result["paper_cost"],
+            "total_cost_usd": result["total_cost"],
+            "cost_per_unit_usd": result["cost_per_unit"],
+            "currency": result["currency"],
+            "breakdown": result["breakdown"],
+        }
         return jsonify(
             {
                 "success": True,
-                "result": result,
+                "result": payload,
             }
         )
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": f"Invalid input: {e}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    import os
-
     app.run(
         host="0.0.0.0",
         port=int(os.getenv("PORT", 5000)),

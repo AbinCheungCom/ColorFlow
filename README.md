@@ -12,7 +12,7 @@ ColorFlow Web 是 **ColorFlow 矢量描图 SDK** 和 **Pantone 色彩管理** �
 
 | 功能 | 说明 |
 |------|------|
-| **矢量描图** | 上传位图（PNG/JPG/WebP），VTracer 转 SVG，预览 + 下载 |
+| **矢量描图** | 上传位图（PNG/JPG/WebP/BMP），VTracer 转 SVG，预览 + 下载 |
 | **Pantone 查色** | 输入 Pantone 色号，一键获取 HEX / CMYK / RGB 值 |
 | **色彩匹配** | 输入 HEX，自动匹配最近的 5 个 Pantone 色 + ΔE 色彩偏差 |
 | **印刷报价** | 尺寸/颜色/纸张/数量 → 全链路油墨+版材+调机+印刷成本 |
@@ -21,11 +21,11 @@ ColorFlow Web 是 **ColorFlow 矢量描图 SDK** 和 **Pantone 色彩管理** �
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | 原生 HTML + CSS + JS（零框架依赖，HTMX 风格交互）|
+| 前端 | 原生 HTML + CSS + JS（零框架依赖）|
 | 后端 | Flask + Python 3.10+ |
 | 描图引擎 | [VTracer](https://github.com/visioncortex/vtracer) (Rust) |
 | 色彩数据库 | [mcp-print](https://github.com/kcgdz/mcp-print) (2415 Pantone 色) |
-| 矢量输出 | [ColorFlow SDK](https://github.com/AbinCheungCom/ColorFlow) |
+| 矢量输出 | [ColorFlow SDK](https://github.com/Abinius/ColorFlow) |
 
 ## 工作流
 
@@ -42,13 +42,18 @@ ColorFlow Web 是 **ColorFlow 矢量描图 SDK** 和 **Pantone 色彩管理** �
 ### 前提
 
 ```bash
-pip install flask colorflow-sdk mcp-print
+pip install -r requirements.txt
+```
+
+> 注意：`colorflow-sdk` 未发布到 PyPI，需从 GitHub 安装（requirements.txt 已内置 `git+` 引用）。若想装本地开发版：
+
+```bash
+pip install -e /path/to/ColorFlow     # ColorFlow SDK 仓库本地路径
 ```
 
 ### 运行
 
 ```bash
-cd colorflow-web
 python3 app.py
 # → http://localhost:5000
 ```
@@ -86,11 +91,30 @@ curl -X POST http://localhost:5000/api/pantone/match \
   -H "Content-Type: application/json" \
   -d '{"hex_color": "#DA291C"}'
 
-# 印刷报价
+# 印刷报价（返回字段带 _usd 后缀 + breakdown 明细）
 curl -X POST http://localhost:5000/api/cost/quote \
   -H "Content-Type: application/json" \
   -d '{"width": 210, "height": 297, "qty": 5000, "colors": 4, "gsm": 120, "method": "offset"}'
+
+# 返回示例（部分字段）
+# {
+#   "success": true,
+#   "result": {
+#     "ink_cost_usd": 14.05, "setup_cost_usd": 240.0,
+#     "total_cost_usd": 259.08, "cost_per_unit_usd": 0.0518,
+#     "currency": "USD",
+#     "breakdown": {"ink": 14.05, "plates": 140.0, "makeready": 100.0, "run_cost": 5.03, "paper": 0.0}
+#   }
+# }
 ```
+
+## 错误码
+
+| 错误码 | 说明 |
+|--------|------|
+| 400 | 参数错误 / 缺少必要字段 / 非法 JSON |
+| 415 | 不支持的图片类型或未带 JSON Content-Type |
+| 500 | 服务端执行失败 |
 
 ## 配色方案
 
@@ -103,16 +127,25 @@ colorflow-web/
 ├── app.py              # Flask 入口，所有 API 路由
 ├── templates/
 │   └── index.html     # 单页 HTML（4 Tab）
-└── static/
-    ├── style.css      # 深色主题样式
-    └── app.js         # 前端交互逻辑
+├── static/
+│   ├── style.css      # 深色主题样式
+│   └── app.js         # 前端交互逻辑
+└── tests/
+    └── test_app.py    # 集成测试（21 个用例）
+```
+
+## 测试
+
+```bash
+pip install pytest
+python -m pytest tests/ -q
 ```
 
 ## 相关项目
 
 | 项目 | 说明 |
 |------|------|
-| [ColorFlow SDK](https://github.com/AbinCheungCom/ColorFlow) | AI Agent 矢量描图 SDK（Python/CLI/API）|
+| [ColorFlow SDK](https://github.com/Abinius/ColorFlow) | AI Agent 矢量描图 SDK（Python/CLI/API）|
 | [mcp-print](https://github.com/kcgdz/mcp-print) | Pantone + CMYK + Delta E + 印刷报价（2415 色）|
 | [vtracer](https://github.com/visioncortex/vtracer) | Rust 矢量描图引擎 |
 
