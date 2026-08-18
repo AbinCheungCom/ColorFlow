@@ -91,28 +91,36 @@ class ColorFlowSDK:
 
     def _prepare_input_image(self, image_path: str, mode: str, colormode: str):
         """vtracer 0.6.x Python 绑定的 mode/colormode 参数失效（上游 bug），
-        改为在输入侧预处理实现灰度 / 黑白效果。
+        改为在输入侧预处理实现：
+        - mode=grey / colormode=grey|grey16 → 输入灰度化
+        - colormode=mono                    → 输入二值化
+        - mode=color                        → posterize 色块化（VTracer 对平滑渐变
+          无边界可循会塌缩成单一暗色，posterize 制造色阶边界让彩色得以保留）
 
         Returns:
             (处理后的图片路径, 是否临时文件需清理)
         """
         needs_grey = mode == "grey" or colormode in ("grey", "grey16")
         needs_mono = colormode == "mono"
-        if not (needs_grey or needs_mono):
+        needs_posterize = mode == "color" and not (needs_grey or needs_mono)
+        if not (needs_grey or needs_mono or needs_posterize):
             return image_path, False
 
         try:
             from PIL import Image, ImageOps
         except ImportError:
-            # 无 Pillow 时退回原图（彩色输出），不阻断流程
+            # 无 Pillow 时退回原图，不阻断流程
             return image_path, False
 
         try:
             img = Image.open(image_path)
             if needs_mono:
                 img = ImageOps.grayscale(img).point(lambda p: 255 if p > 128 else 0)
-            else:
+            elif needs_grey:
                 img = ImageOps.grayscale(img)
+            else:
+                # bits=4：每通道 16 级，足够细不破坏色块插画，又能救活平滑渐变
+                img = ImageOps.posterize(img.convert("RGB"), bits=4)
         except Exception:
             return image_path, False
 

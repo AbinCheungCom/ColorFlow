@@ -44,6 +44,14 @@ class TestModeCompensation:
         non_grey = [f for f in fills if not (f[0:2] == f[2:4] == f[4:6])]
         assert non_grey, "color 模式输出丢失了彩色"
 
+    def test_color_mode_preserves_multiple_colors_on_gradient(self, tmp_path):
+        """平滑渐变图在 color 模式下不应塌缩成单一暗色（posterize 预处理）"""
+        sdk = ColorFlowSDK(output_dir=str(tmp_path))
+        src = _make_gradient(tmp_path / "g.png")
+        svg_path = sdk.trace(src, mode="color", filter_speckle=1)
+        fills = _fills(svg_path)
+        assert len(fills) >= 3, f"color 模式对渐变图塌缩（仅 {len(fills)} 色）"
+
     def test_grey_mode_outputs_grey(self, tmp_path):
         sdk = ColorFlowSDK(output_dir=str(tmp_path))
         src = _make_gradient(tmp_path / "g.png")
