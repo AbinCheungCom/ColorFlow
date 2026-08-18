@@ -89,6 +89,43 @@ class ColorFlowSDK:
                 f"{name} must be between {min_val} and {max_val}, got {value}"
             )
 
+    def _prepare_input_image(self, image_path: str, mode: str, colormode: str):
+        """vtracer 0.6.x Python 绑定的 mode/colormode 参数失效（上游 bug），
+        改为在输入侧预处理实现灰度 / 黑白效果。
+
+        Returns:
+            (处理后的图片路径, 是否临时文件需清理)
+        """
+        needs_grey = mode == "grey" or colormode in ("grey", "grey16")
+        needs_mono = colormode == "mono"
+        if not (needs_grey or needs_mono):
+            return image_path, False
+
+        try:
+            from PIL import Image, ImageOps
+        except ImportError:
+            # 无 Pillow 时退回原图（彩色输出），不阻断流程
+            return image_path, False
+
+        try:
+            img = Image.open(image_path)
+            if needs_mono:
+                img = ImageOps.grayscale(img).point(lambda p: 255 if p > 128 else 0)
+            else:
+                img = ImageOps.grayscale(img)
+        except Exception:
+            return image_path, False
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        try:
+            img.convert("RGB").save(tmp.name, format="PNG")
+        except Exception:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+            return image_path, False
+        return tmp.name, True
+
     def trace(
         self,
         image_path: str,
@@ -144,10 +181,13 @@ class ColorFlowSDK:
         output_filename = f"colorflow_{uuid4()}.svg"
         output_path = os.path.join(self.output_dir, output_filename)
 
-        # 调用 VTracer
+        # 调用 VTracer（mode/colormode 在绑定层失效，已在输入侧预处理补偿）
+        prepared_path, is_temp = self._prepare_input_image(
+            image_path, mode, colormode
+        )
         try:
             vtracer.convert_image_to_svg_py(
-                image_path=image_path,
+                image_path=prepared_path,
                 out_path=output_path,
                 colormode=colormode,
                 hierarchical=hierarchical,
@@ -163,6 +203,9 @@ class ColorFlowSDK:
             )
         except Exception as e:
             raise TraceError(f"VTracer execution failed: {e}") from e
+        finally:
+            if is_temp and os.path.exists(prepared_path):
+                os.unlink(prepared_path)
 
         # 校验输出
         if not os.path.exists(output_path):
