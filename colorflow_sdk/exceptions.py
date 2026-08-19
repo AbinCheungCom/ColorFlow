@@ -23,3 +23,9 @@ class PrintError(ColorFlowError):
     """印刷 PDF 导出失败"""
 
     pass
+
+
+class CutoutError(ColorFlowError):
+    """抠图（背景移除）执行失败"""
+
+    pass

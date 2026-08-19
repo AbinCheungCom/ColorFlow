@@ -4,7 +4,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 安装依赖
+# onnxruntime（rembg 依赖）需要 libgomp1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装依赖（含 rembg 抠图）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

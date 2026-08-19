@@ -164,3 +164,114 @@ class TestTraceEndpointSuccess:
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/svg+xml"
         assert b"<svg" in response.content
+
+
+class TestCutoutEndpoint:
+    """抠图端点测试"""
+
+    def test_cutout_requires_api_key(self):
+        """缺少 API key 应返回 401"""
+        response = client.post(
+            "/api/v1/cutout",
+            files={"image": ("a.png", b"fake", "image/png")},
+        )
+        assert response.status_code == 401
+
+    def test_cutout_unsupported_type(self):
+        """不支持的图片类型应返回 415"""
+        response = client.post(
+            "/api/v1/cutout",
+            files={"image": ("a.gif", b"GIF89a", "image/gif")},
+            headers={"x-api-key": TEST_API_KEY},
+        )
+        assert response.status_code == 415
+
+    def test_cutout_rmbg_blocked(self, sample_png):
+        """未授权 RMBG 系模型应返回 400（BRIA 许可红线）"""
+        if not sample_png:
+            import pytest
+
+            pytest.skip("Sample image not found")
+        with open(sample_png, "rb") as f:
+            response = client.post(
+                "/api/v1/cutout",
+                data={"model": "bria-rmbg"},
+                files={"image": ("sample.png", f, "image/png")},
+                headers={"x-api-key": TEST_API_KEY},
+            )
+        assert response.status_code == 400
+        assert "BRIA" in response.json()["detail"]
+
+    def test_cutout_success(self, sample_png, monkeypatch):
+        """合法图片应返回 200 和透明 PNG 内容"""
+        import io
+
+        from PIL import Image
+
+        import colorflow_sdk.cutout as cutout_mod
+
+        if not sample_png:
+            import pytest
+
+            pytest.skip("Sample image not found")
+
+        def fake_remove(image, **kwargs):
+            rgba = image.convert("RGBA")
+            rgba.putalpha(200)
+            return rgba
+
+        monkeypatch.setattr(cutout_mod, "_run_rembg", fake_remove)
+
+        with open(sample_png, "rb") as f:
+            response = client.post(
+                "/api/v1/cutout",
+                files={"image": ("sample.png", f, "image/png")},
+                headers={"x-api-key": TEST_API_KEY},
+            )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        # PNG 魔数
+        assert response.content[:8] == b"\x89PNG\r\n\x1a\n"
+        img = Image.open(io.BytesIO(response.content))
+        assert img.mode == "RGBA"
+
+    def test_cutout_trace_bad_background(self, sample_png):
+        """background 格式非法应返回 400"""
+        if not sample_png:
+            import pytest
+
+            pytest.skip("Sample image not found")
+        with open(sample_png, "rb") as f:
+            response = client.post(
+                "/api/v1/cutout-trace",
+                data={"background": "red"},
+                files={"image": ("sample.png", f, "image/png")},
+                headers={"x-api-key": TEST_API_KEY},
+            )
+        assert response.status_code == 400
+
+    def test_cutout_trace_success(self, sample_png, monkeypatch):
+        """一键串联端点应返回 200 和 SVG 内容"""
+        import colorflow_sdk.cutout as cutout_mod
+
+        if not sample_png:
+            import pytest
+
+            pytest.skip("Sample image not found")
+
+        def fake_remove(image, **kwargs):
+            rgba = image.convert("RGBA")
+            rgba.putalpha(200)
+            return rgba
+
+        monkeypatch.setattr(cutout_mod, "_run_rembg", fake_remove)
+
+        with open(sample_png, "rb") as f:
+            response = client.post(
+                "/api/v1/cutout-trace",
+                files={"image": ("sample.png", f, "image/png")},
+                headers={"x-api-key": TEST_API_KEY},
+            )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/svg+xml"
+        assert b"<svg" in response.content

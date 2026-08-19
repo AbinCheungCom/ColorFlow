@@ -307,6 +307,254 @@ class ColorFlowSDK:
         """获取 VTracer 版本"""
         return getattr(vtracer, "__version__", "unknown")
 
+    # ------------------------------------------------------------------
+    # CUTOUT 抠图模块：背景移除 → 透明底 PNG
+    # ------------------------------------------------------------------
+
+    def _cutout_image(
+        self,
+        image,
+        model: str = "u2net",
+        allow_rmbg: bool = False,
+        alpha_matting: bool = False,
+        alpha_matting_foreground_threshold: int = 240,
+        alpha_matting_background_threshold: int = 10,
+        alpha_matting_erode_size: int = 10,
+        max_side: int = 4096,
+    ):
+        """抠图共享流程：PIL Image → 透明底 RGBA PIL Image"""
+        from . import cutout as cutout_mod
+
+        return cutout_mod.cutout_image(
+            image,
+            model=model,
+            allow_rmbg=allow_rmbg,
+            alpha_matting=alpha_matting,
+            alpha_matting_foreground_threshold=alpha_matting_foreground_threshold,
+            alpha_matting_background_threshold=alpha_matting_background_threshold,
+            alpha_matting_erode_size=alpha_matting_erode_size,
+            max_side=max_side,
+        )
+
+    def cutout(
+        self,
+        image_path: str,
+        model: str = "u2net",
+        allow_rmbg: bool = False,
+        alpha_matting: bool = False,
+        alpha_matting_foreground_threshold: int = 240,
+        alpha_matting_background_threshold: int = 10,
+        alpha_matting_erode_size: int = 10,
+        max_side: int = 4096,
+        output_path: str | None = None,
+    ) -> str:
+        """
+        抠图：背景移除，产出透明底 PNG（落盘模式）
+
+        Args:
+            image_path: 输入图片路径（PNG/JPG/WebP/BMP）
+            model: 抠图模型 - u2net（默认，176MB 通用）| silueta（43MB 轻量）
+                | isnet | birefnet-general（SOTA 毛发/半透明边缘）| birefnet-2k
+            allow_rmbg: 是否放行 RMBG 系模型（bria-rmbg / birefnet-rmbg）。
+                RMBG 系为 BRIA 许可，商用需遵守协议，默认拒绝
+            alpha_matting: 是否启用 alpha matting 边缘细化（慢，毛发场景建议开启）
+            alpha_matting_foreground_threshold: 前景阈值（默认 240）
+            alpha_matting_background_threshold: 背景阈值（默认 10）
+            alpha_matting_erode_size: 边缘腐蚀尺寸（默认 10）
+            max_side: 长边上限，超过则先等比缩小再抠图（防大图内存峰值，默认 4096）
+            output_path: 输出 PNG 路径；缺省自动生成到 output_dir
+
+        Returns:
+            输出透明底 PNG 文件路径
+
+        Raises:
+            ValidationError: 参数校验失败 / 模型未授权
+            CutoutError: rembg 缺失或执行失败
+        """
+        self._validate_path(image_path)
+        from . import cutout as cutout_mod
+
+        cutout_mod.validate_model(model, allow_rmbg)
+
+        # 读取图片（格式由内容自动识别）
+        try:
+            from PIL import Image
+
+            img = Image.open(image_path)
+            img.load()
+        except Exception as e:
+            raise ValidationError(f"Cannot read image: {image_path} ({e})") from e
+
+        result = self._cutout_image(
+            img,
+            model=model,
+            allow_rmbg=allow_rmbg,
+            alpha_matting=alpha_matting,
+            alpha_matting_foreground_threshold=alpha_matting_foreground_threshold,
+            alpha_matting_background_threshold=alpha_matting_background_threshold,
+            alpha_matting_erode_size=alpha_matting_erode_size,
+            max_side=max_side,
+        )
+
+        # 输出路径（缺省自动命名）
+        if output_path is None:
+            output_path = os.path.join(self.output_dir, f"colorflow_{uuid4()}.png")
+        if not output_path.lower().endswith(".png"):
+            raise ValidationError("output_path must end with .png")
+        out_dir = os.path.dirname(output_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        result.save(output_path, format="PNG")
+        return output_path
+
+    def cutout_bytes(
+        self,
+        image_bytes: bytes,
+        model: str = "u2net",
+        allow_rmbg: bool = False,
+        alpha_matting: bool = False,
+        alpha_matting_foreground_threshold: int = 240,
+        alpha_matting_background_threshold: int = 10,
+        alpha_matting_erode_size: int = 10,
+        max_side: int = 4096,
+    ) -> bytes:
+        """
+        抠图（内存模式，不落盘）：输入图片字节 → 透明底 PNG 字节
+
+        Args:
+            image_bytes: 图片字节数据
+            model / allow_rmbg / alpha_matting* / max_side: 同 cutout()
+
+        Returns:
+            透明底 PNG 文件字节数据
+        """
+        if not isinstance(image_bytes, bytes):
+            raise ValidationError("image_bytes must be bytes")
+
+        import io
+
+        from PIL import Image
+
+        try:
+            img = Image.open(io.BytesIO(image_bytes))
+            img.load()
+        except Exception as e:
+            raise ValidationError(f"Cannot decode image bytes ({e})") from e
+
+        result = self._cutout_image(
+            img,
+            model=model,
+            allow_rmbg=allow_rmbg,
+            alpha_matting=alpha_matting,
+            alpha_matting_foreground_threshold=alpha_matting_foreground_threshold,
+            alpha_matting_background_threshold=alpha_matting_background_threshold,
+            alpha_matting_erode_size=alpha_matting_erode_size,
+            max_side=max_side,
+        )
+
+        buf = io.BytesIO()
+        result.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def cutout_then_trace(
+        self,
+        image_path: str,
+        background=(255, 255, 255),
+        model: str = "u2net",
+        allow_rmbg: bool = False,
+        alpha_matting: bool = False,
+        **trace_kwargs,
+    ) -> str:
+        """
+        一键「抠图 + 描图」串联：背景移除 → 合成背景色 → VTracer 描图
+
+        VTracer 忽略 alpha 通道，透明像素会按黑色参与描图；因此先抠出主体，
+        再合成到背景色（默认白底，贴合印刷承印物）后描图，SVG 路径干净、颜色提取准确。
+
+        Args:
+            image_path: 输入图片路径（带背景的 AI 图 / 照片）
+            background: 合成背景色 RGB 元组（默认白底 (255,255,255)）
+            model / allow_rmbg / alpha_matting: 同 cutout()
+            **trace_kwargs: 透传 trace() 参数（mode/filter_speckle 等）
+
+        Returns:
+            输出 SVG 文件路径
+
+        Raises:
+            ValidationError: 参数校验失败
+            CutoutError: 抠图失败
+            TraceError: 描图失败
+        """
+        from . import cutout as cutout_mod
+
+        self._validate_path(image_path)
+        cutout_mod.validate_model(model, allow_rmbg)
+
+        rgba = self._cutout_image(
+            self._load_pil_image(image_path),
+            model=model,
+            allow_rmbg=allow_rmbg,
+            alpha_matting=alpha_matting,
+        )
+        flattened = cutout_mod.composite_on_background(rgba, background)
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()  # Windows 下先关闭句柄，避免 PIL 二次打开冲突
+        try:
+            flattened.save(tmp.name, format="PNG")
+            return self.trace(tmp.name, **trace_kwargs)
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+
+    def cutout_then_trace_bytes(
+        self,
+        image_bytes: bytes,
+        background=(255, 255, 255),
+        model: str = "u2net",
+        allow_rmbg: bool = False,
+        alpha_matting: bool = False,
+        **trace_kwargs,
+    ) -> bytes:
+        """一键「抠图 + 描图」串联（内存模式）：输入图片字节 → SVG 字节"""
+        if not isinstance(image_bytes, bytes):
+            raise ValidationError("image_bytes must be bytes")
+
+        from . import cutout as cutout_mod
+
+        cutout_mod.validate_model(model, allow_rmbg)
+
+        rgba = self._cutout_image(
+            self._load_pil_image(image_bytes),
+            model=model,
+            allow_rmbg=allow_rmbg,
+            alpha_matting=alpha_matting,
+        )
+        flattened = cutout_mod.composite_on_background(rgba, background)
+
+        import io
+
+        buf = io.BytesIO()
+        flattened.save(buf, format="PNG")
+        return self.trace_bytes(buf.getvalue(), image_format="png", **trace_kwargs)
+
+    @staticmethod
+    def _load_pil_image(source):
+        """从路径或字节加载 PIL Image（格式由内容自动识别）"""
+        import io
+
+        from PIL import Image
+
+        try:
+            if isinstance(source, (bytes, bytearray)):
+                img = Image.open(io.BytesIO(bytes(source)))
+            else:
+                img = Image.open(source)
+            img.load()
+            return img
+        except Exception as e:
+            raise ValidationError(f"Cannot read image ({e})") from e
+
     def export_print(
         self,
         image_path: str,
