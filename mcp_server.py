@@ -127,6 +127,48 @@ def quote_print(
 
 
 @mcp.tool()
+def export_print(
+    image_path: str,
+    width_mm: float,
+    height_mm: float,
+    bleed_mm: float = 3.0,
+    mode: str = "color",
+) -> str:
+    """位图 → 生产印刷级 CMYK PDF（含出血 + 物理尺寸）。
+
+    Args:
+        image_path: 图片文件路径
+        width_mm: 成品宽（毫米）
+        height_mm: 成品高（毫米）
+        bleed_mm: 出血（毫米，默认 3）
+        mode: color | grey | human
+    Returns:
+        JSON: {success, pdf_path}
+    """
+    if not image_path.lower().endswith(ALLOWED_EXT):
+        return json.dumps(
+            {"error": f"不支持的文件类型，允许: {', '.join(ALLOWED_EXT)}"},
+            ensure_ascii=False,
+        )
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        pdf_path = tmp.name
+    try:
+        sdk.export_print(
+            image_path,
+            pdf_path,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            bleed_mm=bleed_mm,
+            mode=mode,
+        )
+        return json.dumps({"success": True, "pdf_path": pdf_path}, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": f"导出失败: {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
 def trace_and_match(image_path: str, mode: str = "color") -> str:
     """一键流水线：位图 → SVG → 提取主色 → 每个主色匹配 Pantone（含 ΔE）。
 

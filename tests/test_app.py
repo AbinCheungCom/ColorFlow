@@ -288,6 +288,57 @@ class TestTraceColors:
                 assert {"name", "hex", "cmyk", "delta_e"} <= set(m.keys())
 
 
+class TestPrintExport:
+    """印刷 PDF 导出端点（export_print M3）"""
+
+    def test_no_image(self):
+        resp = client.post("/api/print/export", data={})
+        assert resp.status_code == 400
+
+    def test_missing_dimensions(self):
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/print/export",
+                data={"image": (f, "sample.png")},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 400
+
+    def test_invalid_dimensions(self):
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/print/export",
+                data={"image": (f, "sample.png"), "width_mm": "0", "height_mm": "80"},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 400
+
+    def test_success_pdf(self):
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/print/export",
+                data={
+                    "image": (f, "sample.png"),
+                    "width_mm": "100",
+                    "height_mm": "80",
+                    "bleed_mm": "3",
+                },
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/pdf"
+        assert resp.data[:5] == b"%PDF-"
+
+
 class TestCostQuote:
     def test_no_json_content_type(self):
         resp = client.post("/api/cost/quote")

@@ -139,6 +139,54 @@ downloadSvg.addEventListener('click', () => {
   a.click();
 });
 
+// === 导出印刷 PDF（export_print 前端入口） ===
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const exportPanel = document.getElementById('exportPanel');
+
+exportPdfBtn.addEventListener('click', () => {
+  if (!traceFile.files[0]) return;
+  exportPanel.classList.remove('hidden');
+  document.getElementById('exportPdfConfirm').disabled = false;
+});
+
+document.getElementById('exportPdfCancel').addEventListener('click', () => {
+  exportPanel.classList.add('hidden');
+});
+
+document.getElementById('exportPdfConfirm').addEventListener('click', async () => {
+  const w = parseFloat(document.getElementById('expWidth').value);
+  const h = parseFloat(document.getElementById('expHeight').value);
+  const b = parseFloat(document.getElementById('expBleed').value) || 0;
+  if (!w || !h) { alert('请输入成品尺寸'); return; }
+  const btn = document.getElementById('exportPdfConfirm');
+  btn.disabled = true; btn.textContent = '生成中...';
+  try {
+    const formData = new FormData();
+    formData.append('image', traceFile.files[0]);
+    formData.append('width_mm', String(w));
+    formData.append('height_mm', String(h));
+    formData.append('bleed_mm', String(b));
+    formData.append('mode', document.getElementById('traceMode').value);
+    const resp = await apiFetch('/api/print/export', { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      alert('导出失败: ' + (d.error || resp.status));
+      return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'colorflow_print.pdf';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    alert('导出失败: ' + e);
+  } finally {
+    btn.disabled = false; btn.textContent = '生成印刷 PDF';
+    exportPanel.classList.add('hidden');
+  }
+});
+
 // === 一键流水线：提取主色 & Pantone 匹配 ===
 const colorMatchBtn = document.getElementById('colorMatchBtn');
 const paletteResults = document.getElementById('paletteResults');

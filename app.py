@@ -1,10 +1,11 @@
 # ColorFlow Web - AI 矢量描图 + Pantone 色彩管理
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import math
 import os
 import base64
 import secrets
+import tempfile
 
 from colorflow_sdk import ColorFlowSDK, extract_svg_colors
 from colorflow_sdk.exceptions import ValidationError
@@ -381,6 +382,65 @@ def cost_quote():
         return jsonify({"error": f"Invalid input: {e}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/print/export", methods=["POST"])
+def export_print():
+    """位图 → 生产印刷级 CMYK PDF 下载（export_print SDK 前端入口）"""
+    upload, err = _get_uploaded_image()
+    if err:
+        return err
+
+    image_bytes, image_format = upload
+    width_mm = _float_arg(request.form.get("width_mm"), 0)
+    height_mm = _float_arg(request.form.get("height_mm"), 0)
+    bleed_mm = _float_arg(request.form.get("bleed_mm"), 3.0)
+    mode = request.form.get("mode", "color")
+
+    if width_mm <= 0 or height_mm <= 0:
+        return jsonify({"error": "width_mm / height_mm 必须大于 0"}), 400
+    if bleed_mm < 0:
+        return jsonify({"error": "bleed_mm 不能为负"}), 400
+
+    tmp_in, pdf_out = None, None
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=f".{image_format}", delete=False
+        ) as tmp:
+            tmp.write(image_bytes)
+            tmp_in = tmp.name
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            pdf_out = tmp.name
+
+        sdk.export_print(
+            tmp_in,
+            pdf_out,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            bleed_mm=bleed_mm,
+            mode=mode,
+        )
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if tmp_in and os.path.exists(tmp_in):
+            os.unlink(tmp_in)
+
+    with open(pdf_out, "rb") as f:
+        pdf_bytes = f.read()
+    if os.path.exists(pdf_out):
+        os.unlink(pdf_out)
+
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="colorflow_print.pdf"',
+        },
+    )
 
 
 if __name__ == "__main__":
