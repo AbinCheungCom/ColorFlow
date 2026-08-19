@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ColorFlow</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,320..700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="logo">
+          <span class="logo-text">ColorFlow </span>
+        </div>
+        <div class="api-key-row">
+          <input type="password" id="apiKeyInput" class="api-key-input" placeholder="API Key（可选）" autocomplete="off" />
+          <button class="btn btn-small" id="apiKeyBtn">保存</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Tab Navigation -->
+      <div class="tabs">
+        <button class="tab active" data-tab="trace">矢量描图</button>
+        <button class="tab" data-tab="pantone">Pantone 查色</button>
+        <button class="tab" data-tab="match">色彩匹配</button>
+        <button class="tab" data-tab="cost">印刷报价</button>
+      </div>
+
+      <!-- Tab: Vector Trace -->
+      <section class="tab-content active" id="tab-trace">
+        <div class="card">
+          <div class="card-header">
+            <h2>位图 → SVG 矢量描图</h2>
+            <p class="card-desc">上传图片，AI 自动识别路径转换为矢量 SVG</p>
+          </div>
+          <div class="trace-layout">
+            <div class="trace-input">
+              <div class="upload-zone" id="uploadZone">
+                <input type="file" id="traceFile" accept="image/*" hidden />
+                <div class="upload-placeholder">
+                  <svg class="upload-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="56" height="56" aria-hidden="true"><path fill="currentColor" d="M853.344 341.344C853.344 294.4 814.944 256 768 256s-85.344 38.4-85.344 85.344 38.4 85.344 85.344 85.344 85.344-38.4 85.344-85.344z"/><path fill="currentColor" d="M0 85.344v853.344h512v-85.344H85.344V742.4l256-256L512 657.056l59.744-59.744-230.4-230.4-256 256V170.656h853.344v298.656l85.344 85.344V85.312z"/><path fill="currentColor" d="M951.456 840.544L1011.2 780.8l-200.544-200.544-200.544 200.544 59.744 59.744L768 742.4v238.944h85.344V742.4z"/></svg>
+                  <div class="upload-text">点击上传或拖拽图片</div>
+                  <div class="upload-hint">PNG / JPG / WebP · 最大 10MB</div>
+                </div>
+                <img id="previewImg" class="preview-img hidden" />
+              </div>
+              <div class="params">
+                <div class="param-row">
+                  <label>描图模式</label>
+                  <select id="traceMode">
+                    <option value="color" selected>彩色 (Color)</option>
+                    <option value="grey">灰度 (Grey)</option>
+                    <option value="human">人像 (Human)</option>
+                  </select>
+                </div>
+                <div class="param-row">
+                  <label>斑点过滤: <span id="speckleVal">4</span></label>
+                  <input type="range" id="filterSpeckle" min="1" max="100" value="4" />
+                </div>
+                <div class="param-row">
+                  <label>路径精度: <span id="precisionVal">7</span></label>
+                  <input type="range" id="pathPrecision" min="1" max="16" value="7" />
+                </div>
+              </div>
+              <button class="btn btn-primary" id="traceBtn" disabled>
+                <span class="btn-text">开始描图</span>
+                <span class="btn-loader hidden">处理中...</span>
+              </button>
+            </div>
+            <div class="trace-output">
+              
+              <div class="svg-preview" id="svgPreview">
+                <div class="svg-placeholder">等待生成...</div>
+              </div>
+              <div class="svg-info hidden" id="svgInfo">
+                <span class="svg-size"></span>
+                <button class="btn btn-small" id="downloadSvg">下载 SVG</button>
+                <button class="btn btn-small" id="exportPdfBtn">导出印刷 PDF</button>
+                <button class="btn btn-small btn-accent" id="colorMatchBtn">提取主色 & Pantone 匹配</button>
+              </div>
+              <div class="export-panel hidden" id="exportPanel">
+                <div class="export-form">
+                  <label>成品宽 (mm)</label>
+                  <input type="number" id="expWidth" value="210" min="1" />
+                  <label>成品高 (mm)</label>
+                  <input type="number" id="expHeight" value="297" min="1" />
+                  <label>出血 (mm)</label>
+                  <input type="number" id="expBleed" value="3" min="0" step="0.5" />
+                  <button class="btn btn-primary" id="exportPdfConfirm">生成印刷 PDF</button>
+                  <button class="btn btn-small" id="exportPdfCancel">取消</button>
+                </div>
+                <div class="export-hint">输出 A4 留边 CMYK PDF（含出血与裁切线）</div>
+              </div>
+              <div class="palette-results hidden" id="paletteResults"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Pantone Lookup -->
+      <section class="tab-content" id="tab-pantone">
+        <div class="card">
+          <div class="card-header">
+            <h2>Pantone 色号查询</h2>
+            <p class="card-desc">输入 Pantone 色号，获取 CMYK / HEX / RGB 值</p>
+          </div>
+          <div class="search-row">
+            <input type="text" id="pantoneInput" class="search-input" placeholder="输入色号，如: 485C / 180 C / Warm Red" />
+            <button class="btn btn-primary" id="pantoneBtn">查询</button>
+          </div>
+          <div class="result-card hidden" id="pantoneResult">
+            <div class="color-swatch" id="pantoneSwatch"></div>
+            <div class="color-details">
+              <div class="color-name" id="pantoneName">-</div>
+              <div class="color-values">
+                <div class="color-value-item">
+                  <span class="label">HEX</span>
+                  <span class="value" id="pantoneHex">-</span>
+                </div>
+                <div class="color-value-item">
+                  <span class="label">CMYK</span>
+                  <span class="value" id="pantoneCmyk">-</span>
+                </div>
+                <div class="color-value-item">
+                  <span class="label">RGB</span>
+                  <span class="value" id="pantoneRgb">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="error-msg hidden" id="pantoneError"></div>
+        </div>
+      </section>
+
+      <!-- Tab: Color Match -->
+      <section class="tab-content" id="tab-match">
+        <div class="card">
+          <div class="card-header">
+            <h2>HEX → Pantone 最近色匹配</h2>
+            <p class="card-desc">输入 HEX 颜色值，查找最近的 5 个 Pantone 色</p>
+          </div>
+          <div class="search-row">
+            <div class="color-input-wrap">
+              <input type="color" id="colorPicker" value="#DA291C" class="color-picker-input" />
+              <input type="text" id="hexInput" class="search-input" value="#DA291C" placeholder="#DA291C" maxlength="7" />
+            </div>
+            <button class="btn btn-primary" id="matchBtn">匹配</button>
+          </div>
+          <div class="match-results" id="matchResults">
+            <div class="match-placeholder">输入 HEX 颜色进行匹配...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Print Cost -->
+      <section class="tab-content" id="tab-cost">
+        <div class="card">
+          <div class="card-header">
+            <h2>印刷报价计算</h2>
+            <p class="card-desc">基于 mcp-print 计算全链路印刷成本</p>
+          </div>
+          <div class="cost-form">
+            <div class="param-row">
+              <label>印刷方式</label>
+              <select id="printMethod">
+                <option value="offset" selected>胶印 (Offset)</option>
+                <option value="flexo">柔版 (Flexo)</option>
+                <option value="gravure">凹版 (Gravure)</option>
+                <option value="screen">丝网 (Screen)</option>
+                <option value="digital">数码 (Digital)</option>
+              </select>
+            </div>
+            <div class="param-row">
+              <label>尺寸 (mm)</label>
+              <div class="size-inputs">
+                <input type="number" id="printWidth" value="210" placeholder="宽" />
+                <span>×</span>
+                <input type="number" id="printHeight" value="297" placeholder="高" />
+              </div>
+            </div>
+            <div class="param-row">
+              <label>颜色数</label>
+              <select id="printColors">
+                <option value="1">1 色</option>
+                <option value="2">2 色</option>
+                <option value="4" selected>4 色 (CMYK)</option>
+                <option value="5">5 色 (CMYK + 专色)</option>
+                <option value="6">6 色</option>
+              </select>
+            </div>
+            <div class="param-row">
+              <label>纸张克重 (gsm)</label>
+              <input type="number" id="printGsm" value="120" min="50" max="400" />
+            </div>
+            <div class="param-row">
+              <label>数量</label>
+              <input type="number" id="printQty" value="1000" min="1" />
+            </div>
+            <button class="btn btn-primary" id="costBtn">计算报价</button>
+          </div>
+          <div class="cost-result hidden" id="costResult"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      ColorFlow  · 
+      <a href="https://github.com/Abinius/ColorFlow" target="_blank">GitHub</a>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
