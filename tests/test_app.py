@@ -232,6 +232,61 @@ class TestTraceColors:
             m = item["pantone_matches"][0]
             assert "name" in m and "hex" in m and "delta_e" in m
 
+    def test_pipeline_color_has_rgb(self):
+        """潘通色卡：主色应含 RGB 值（需求：色卡展示 RGB）"""
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/trace/colors",
+                data={"image": (f, "sample.png")},
+                content_type="multipart/form-data",
+            )
+        data = resp.get_json()
+        assert resp.status_code == 200
+        assert data["color_count"] > 0
+        for item in data["palette"]:
+            rgb = item["color"].get("rgb")
+            assert rgb and len(rgb) == 3
+            assert all(isinstance(v, int) and 0 <= v <= 255 for v in rgb)
+
+    def test_pipeline_matches_have_rgb(self):
+        """潘通色卡：匹配色应含 RGB 值"""
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/trace/colors",
+                data={"image": (f, "sample.png")},
+                content_type="multipart/form-data",
+            )
+        data = resp.get_json()
+        assert resp.status_code == 200
+        for item in data["palette"]:
+            for m in item["pantone_matches"]:
+                rgb = m.get("rgb")
+                assert rgb and len(rgb) == 3
+
+    def test_pipeline_backward_compat(self):
+        """向后兼容：现有字段(hex/count/share/name/cmyk/delta_e)全部保留"""
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/trace/colors",
+                data={"image": (f, "sample.png")},
+                content_type="multipart/form-data",
+            )
+        data = resp.get_json()
+        assert resp.status_code == 200
+        for item in data["palette"]:
+            assert {"hex", "count", "share"} <= set(item["color"].keys())
+            for m in item["pantone_matches"]:
+                assert {"name", "hex", "cmyk", "delta_e"} <= set(m.keys())
+
 
 class TestCostQuote:
     def test_no_json_content_type(self):

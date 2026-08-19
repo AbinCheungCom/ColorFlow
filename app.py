@@ -195,15 +195,27 @@ def trace_colors():
                 de = math.sqrt(
                     sum((a - b) ** 2 for a, b in zip(lab_hex, lab_pantone))
                 )
+                _rgb = cmyk_to_rgb(m["c"], m["m"], m["y"], m["k"])
                 matches.append(
                     {
                         "name": m["name"],
                         "hex": m["hex"],
                         "cmyk": [m["c"], m["m"], m["y"], m["k"]],
+                        "rgb": [_rgb["r"], _rgb["g"], _rgb["b"]],
                         "delta_e": round(de, 2),
                     }
                 )
-            palette.append({"color": c, "pantone_matches": matches})
+            palette.append(
+                {
+                    "color": {
+                        "hex": c["hex"],
+                        "count": c["count"],
+                        "share": c["share"],
+                        "rgb": list(_hex_to_rgb(c["hex"])),
+                    },
+                    "pantone_matches": matches,
+                }
+            )
 
         return jsonify(
             {

@@ -5,6 +5,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ΔE 分级（Figma match-de 配色）
+function gradeClass(de) {
+  return de < 1 ? 'excellent' : de < 3 ? 'good' : de < 6 ? 'fair' : 'poor';
+}
+
 // === API Key：localStorage 持久化 + 自动附带 x-api-key 头 ===
 const apiKeyInput = document.getElementById('apiKeyInput');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
@@ -164,25 +169,54 @@ colorMatchBtn.addEventListener('click', async () => {
       return;
     }
 
-    let html = '<div class="palette-title">检测到 ' + data.palette.length + ' 个主色 · Pantone 匹配</div>';
-    data.palette.forEach(item => {
-      const pct = Math.round((item.color.share || 0) * 100);
-      html += `<div class="palette-item">
-        <div class="match-swatch" style="background:${escapeHtml(item.color.hex)}"></div>
-        <div class="match-info">
-          <div class="match-name">${escapeHtml(item.color.hex)} <span class="palette-share">${pct}%</span></div>`;
-      if (item.pantone_matches.length > 0) {
-        const top = item.pantone_matches[0];
-        html += `<div class="match-hex">Pantone ${escapeHtml(top.name)} · ΔE ${escapeHtml(top.delta_e)}</div>`;
-      } else {
-        html += '<div class="match-hex">无匹配色</div>';
-      }
-      html += `</div></div>`;
+    let html = '<div class="palette-title">检测到 ' + data.palette.length + ' 个主色 · Pantone 色卡</div>';
+
+    data.palette.forEach((item, idx) => {
+      const c = item.color;
+      const top = item.pantone_matches[0] || null;
+      const pct = Math.round((c.share || 0) * 100);
+      const rgb = (c.rgb || []).join(',');
+
+      html += `<div class="swatch-card">
+        <div class="swatch-large" style="background:${escapeHtml(c.hex)}"></div>
+        <div class="swatch-body">
+          <div class="swatch-head">
+            <span class="swatch-hex">${escapeHtml(c.hex)}</span>
+            <span class="swatch-share">${pct}%</span>
+          </div>
+          ${top
+            ? `<div class="swatch-pantone">${escapeHtml(top.name)}
+                 <span class="match-de ${gradeClass(top.delta_e)}">ΔE ${escapeHtml(top.delta_e)}</span>
+               </div>
+               <div class="swatch-values">
+                 <span>HEX ${escapeHtml(c.hex)}</span>
+                 <span>CMYK ${escapeHtml(top.cmyk.join('/'))}</span>
+                 <span>RGB ${escapeHtml(rgb)}</span>
+               </div>
+               ${item.pantone_matches.length > 1 ? `<button class="btn btn-small swatch-expand" data-i="${idx}">全部匹配 (${item.pantone_matches.length})</button>` : ''}`
+            : `<div class="swatch-pantone">无匹配色</div>`}
+          <div class="swatch-more hidden" data-more="${idx}">
+            ${(item.pantone_matches || []).slice(1).map(m =>
+              `<div class="swatch-more-row">${escapeHtml(m.name)} · ${escapeHtml(m.hex)}
+                 <span class="match-de ${gradeClass(m.delta_e)}">ΔE ${escapeHtml(m.delta_e)}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>`;
     });
     html += `<div class="palette-actions">
       <button class="btn btn-small btn-accent" id="fillQuoteBtn">按 ${data.color_count} 色填入报价</button>
     </div>`;
     paletteResults.innerHTML = html;
+
+    // 展开/收起 top-3 匹配
+    paletteResults.querySelectorAll('.swatch-expand').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const more = paletteResults.querySelector(`[data-more="${btn.dataset.i}"]`);
+        more.classList.toggle('hidden');
+        btn.textContent = more.classList.contains('hidden')
+          ? `全部匹配 (${data.palette[Number(btn.dataset.i)].pantone_matches.length})` : '收起';
+      });
+    });
 
     // 「填入报价」：切到报价 Tab、按色数报价
     document.getElementById('fillQuoteBtn').addEventListener('click', () => {
