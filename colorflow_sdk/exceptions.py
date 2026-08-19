@@ -17,3 +17,9 @@ class TraceError(ColorFlowError):
     """VTracer 执行失败"""
 
     pass
+
+
+class PrintError(ColorFlowError):
+    """印刷 PDF 导出失败"""
+
+    pass

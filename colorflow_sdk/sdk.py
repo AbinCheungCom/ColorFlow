@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import vtracer
 
-from .exceptions import TraceError, ValidationError
+from .exceptions import PrintError, TraceError, ValidationError
 
 
 class ColorFlowSDK:
@@ -306,3 +306,64 @@ class ColorFlowSDK:
     def get_version() -> str:
         """获取 VTracer 版本"""
         return getattr(vtracer, "__version__", "unknown")
+
+    def export_print(
+        self,
+        image_path: str,
+        output_path: str,
+        width_mm: float,
+        height_mm: float,
+        bleed_mm: float = 3.0,
+        mode: str = "color",
+        path_precision: int = 10,
+        **trace_kwargs,
+    ) -> str:
+        """
+        位图 → 生产印刷级 CMYK PDF（含出血 + 物理尺寸 + BleedBox）。
+
+        Args:
+            image_path: 输入位图路径
+            output_path: 输出 PDF 路径（.pdf）
+            width_mm: 成品宽度（毫米，>0）
+            height_mm: 成品高度（毫米，>0）
+            bleed_mm: 出血（毫米，>=0，印刷标准 3）
+            mode: 描图模式（color/grey/human）
+            path_precision: 路径精度（印刷级建议 10+，默认 7）
+            **trace_kwargs: 透传 trace() 其余参数（filter_speckle 等）
+
+        Returns:
+            输出 PDF 文件路径
+
+        Raises:
+            ValidationError: 参数非法
+            TraceError: 描图失败
+            PrintError: PDF 构建失败 / 缺依赖
+        """
+        # 1. 参数校验
+        for name, val in (("width_mm", width_mm), ("height_mm", height_mm)):
+            if not isinstance(val, (int, float)) or val <= 0:
+                raise ValidationError(f"{name} must be > 0, got {val}")
+        if not isinstance(bleed_mm, (int, float)) or bleed_mm < 0:
+            raise ValidationError(f"bleed_mm must be >= 0, got {bleed_mm}")
+        if not output_path.lower().endswith(".pdf"):
+            raise ValidationError("output_path must end with .pdf")
+
+        # 2. 描图（自动 posterize/灰度/黑白）
+        svg_path = self.trace(
+            image_path, mode=mode, path_precision=path_precision, **trace_kwargs
+        )
+
+        # 3. 构建 PDF（懒加载依赖）
+        try:
+            from .print import svg_to_print_pdf
+
+            svg_to_print_pdf(svg_path, output_path, width_mm, height_mm, bleed_mm)
+        except ImportError as e:
+            raise PrintError(f"缺失印刷依赖: pip install svglib reportlab ({e})") from e
+        except Exception as e:
+            raise PrintError(f"PDF 构建失败: {e}") from e
+        finally:
+            if os.path.exists(svg_path):
+                os.unlink(svg_path)  # 清理中间 SVG
+
+        return output_path

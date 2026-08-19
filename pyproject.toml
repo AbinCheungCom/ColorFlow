@@ -31,11 +31,16 @@ api = [
     "python-multipart>=0.0.6",
     "pydantic>=2.0.0",
 ]
+print = [
+    "svglib>=1.5",
+    "reportlab>=4.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
     "httpx>=0.25.0",  # fastapi TestClient 运行时依赖
+    "pikepdf>=8.0",   # 印刷 PDF 测试断言
 ]
 
 [project.scripts]
