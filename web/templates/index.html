@@ -26,6 +26,7 @@
       <!-- Tab Navigation -->
       <div class="tabs">
         <button class="tab active" data-tab="trace">矢量描图</button>
+        <button class="tab" data-tab="cutout">抠图</button>
         <button class="tab" data-tab="pantone">Pantone 查色</button>
         <button class="tab" data-tab="match">色彩匹配</button>
         <button class="tab" data-tab="cost">印刷报价</button>
@@ -97,6 +98,73 @@
                 <div class="export-hint">输出 A4 留边 CMYK PDF（含出血与裁切线）</div>
               </div>
               <div class="palette-results hidden" id="paletteResults"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Cutout 抠图 -->
+      <section class="tab-content" id="tab-cutout">
+        <div class="card">
+          <div class="card-header">
+            <h2>抠图 · 背景移除</h2>
+            <p class="card-desc">rembg 内核（u2net/silueta），一键产出透明底 PNG，或直接串联描图出 SVG</p>
+          </div>
+          <div class="trace-layout">
+            <div class="trace-input">
+              <div class="upload-zone" id="cutoutUploadZone">
+                <input type="file" id="cutoutFile" accept="image/*" hidden />
+                <div class="upload-placeholder">
+                  <svg class="upload-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="56" height="56" aria-hidden="true"><path fill="currentColor" d="M853.344 341.344C853.344 294.4 814.944 256 768 256s-85.344 38.4-85.344 85.344 38.4 85.344 85.344 85.344 85.344-38.4 85.344-85.344z"/><path fill="currentColor" d="M0 85.344v853.344h512v-85.344H85.344V742.4l256-256L512 657.056l59.744-59.744-230.4-230.4-256 256V170.656h853.344v298.656l85.344 85.344V85.312z"/><path fill="currentColor" d="M951.456 840.544L1011.2 780.8l-200.544-200.544-200.544 200.544 59.744 59.744L768 742.4v238.944h85.344V742.4z"/></svg>
+                  <div class="upload-text">点击上传或拖拽图片</div>
+                  <div class="upload-hint">PNG / JPG / WebP · 最大 10MB</div>
+                </div>
+                <img id="cutoutPreview" class="preview-img hidden" />
+              </div>
+              <div class="params">
+                <div class="param-row">
+                  <label>抠图模型</label>
+                  <select id="cutoutModel">
+                    <option value="u2net" selected>u2net（通用，176MB）</option>
+                    <option value="silueta">silueta（轻量，43MB）</option>
+                    <option value="isnet">isnet（边缘优，176MB）</option>
+                    <option value="birefnet-general">birefnet-general（SOTA 毛发/半透明）</option>
+                  </select>
+                </div>
+                <div class="param-row">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="cutoutAlphaMatting" /> 边缘细化（alpha matting，毛发场景建议，较慢）
+                  </label>
+                </div>
+                <div class="param-row">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="cutoutAllowRmbg" /> 放行 RMBG 系模型（BRIA 许可，商用需遵守协议）
+                  </label>
+                </div>
+                <div class="param-row">
+                  <label>串联描图背景色: <span id="bgVal">255,255,255</span></label>
+                  <input type="text" id="cutoutBg" value="255,255,255" class="search-input" />
+                </div>
+              </div>
+              <button class="btn btn-primary" id="cutoutBtn" disabled>
+                <span class="btn-text">开始抠图</span>
+                <span class="btn-loader hidden">处理中...</span>
+              </button>
+              <button class="btn btn-accent" id="cutoutTraceBtn" disabled>
+                <span class="btn-text">抠图 + 描图（串联）</span>
+                <span class="btn-loader hidden">处理中...</span>
+              </button>
+              <div class="license-hint">首次运行会联网下载模型权重（~/.u2net，可用 U2NET_HOME 指定缓存目录）</div>
+            </div>
+            <div class="trace-output">
+              <div class="svg-preview checker-bg" id="cutoutPreviewOut">
+                <div class="svg-placeholder">等待生成...</div>
+              </div>
+              <div class="svg-info hidden" id="cutoutInfo">
+                <span class="svg-size"></span>
+                <button class="btn btn-small" id="downloadCutoutPng">下载透明 PNG</button>
+                <button class="btn btn-small" id="downloadCutoutSvg">下载 SVG</button>
+              </div>
             </div>
           </div>
         </div>

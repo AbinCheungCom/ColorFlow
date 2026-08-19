@@ -10,10 +10,10 @@ from app import app
 
 client = app.test_client()
 
-# 测试素材（复用 ColorFlow SDK 仓库的 sample.png）
+# 测试素材（Monorepo：复用仓库根目录 ColorFlow SDK 的 sample.png）
 _SAMPLE_PATHS = [
+    Path(__file__).resolve().parent.parent.parent / "assets" / "sample.png",
     Path("/d/Abin/ColorFlow/assets/sample.png"),
-    Path(__file__).resolve().parent.parent.parent / "ColorFlow" / "assets" / "sample.png",
 ]
 
 
@@ -337,6 +337,92 @@ class TestPrintExport:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/pdf"
         assert resp.data[:5] == b"%PDF-"
+
+
+class TestCutout:
+    """抠图端点（rembg 默认未装时以 mock 覆盖 _run_rembg 测试流程）"""
+
+    def test_no_image(self):
+        resp = client.post("/api/cutout", data={})
+        assert resp.status_code == 400
+
+    def test_unsupported_type(self):
+        resp = client.post(
+            "/api/cutout",
+            data={"image": (io.BytesIO(b"GIF89a"), "a.gif")},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 415
+
+    def test_rmbg_blocked_without_allow(self, monkeypatch):
+        """未授权 RMBG 模型应 400（BRIA 许可红线，无需真实模型）"""
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/cutout",
+                data={"image": (f, "sample.png"), "model": "bria-rmbg"},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 400
+        assert "BRIA" in resp.get_json()["error"]
+
+    def test_success_cutout(self, monkeypatch):
+        """合法图片 + mock rembg → 透明 PNG base64"""
+        import colorflow_sdk.cutout as cutout_mod
+        from PIL import Image
+
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+
+        def fake_remove(image, **kwargs):
+            rgba = image.convert("RGBA")
+            rgba.putalpha(200)
+            return rgba
+
+        monkeypatch.setattr(cutout_mod, "_run_rembg", fake_remove)
+
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/cutout",
+                data={"image": (f, "sample.png"), "model": "silueta"},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["png_base64"]
+        img = Image.open(io.BytesIO(__import__("base64").b64decode(data["png_base64"])))
+        assert img.mode == "RGBA"
+
+    def test_success_cutout_trace(self, monkeypatch):
+        """一键串联：mock rembg + 真实 VTracer → SVG base64"""
+        import colorflow_sdk.cutout as cutout_mod
+
+        png = _sample_png()
+        if not png:
+            pytest.skip("sample.png not found")
+
+        def fake_remove(image, **kwargs):
+            rgba = image.convert("RGBA")
+            rgba.putalpha(200)
+            return rgba
+
+        monkeypatch.setattr(cutout_mod, "_run_rembg", fake_remove)
+
+        with open(png, "rb") as f:
+            resp = client.post(
+                "/api/cutout/trace",
+                data={"image": (f, "sample.png"), "background": "255,255,255"},
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["svg_base64"]
+        assert b"<svg" in __import__("base64").b64decode(data["svg_base64"])
 
 
 class TestCostQuote:

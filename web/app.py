@@ -8,7 +8,7 @@ import secrets
 import tempfile
 
 from colorflow_sdk import ColorFlowSDK, extract_svg_colors
-from colorflow_sdk.exceptions import ValidationError
+from colorflow_sdk.exceptions import CutoutError, ValidationError
 from mcp_print.tools.colors import (
     pantone_to_cmyk,
     pantone_search,
@@ -441,6 +441,74 @@ def export_print():
             "Content-Disposition": 'attachment; filename="colorflow_print.pdf"',
         },
     )
+
+
+def _cutout_form_params():
+    """从表单读取抠图参数"""
+    return {
+        "model": request.form.get("model", "u2net"),
+        "allow_rmbg": request.form.get("allow_rmbg", "false").lower() == "true",
+        "alpha_matting": request.form.get("alpha_matting", "false").lower() == "true",
+    }
+
+
+@app.route("/api/cutout", methods=["POST"])
+def cutout_image():
+    """抠图：背景移除 → 透明底 PNG（base64 JSON，前端预览 + 下载）"""
+    upload, err = _get_uploaded_image()
+    if err:
+        return err
+
+    image_bytes, _ = upload
+    params = _cutout_form_params()
+
+    try:
+        png_bytes = sdk.cutout_bytes(image_bytes, **params)
+        b64 = base64.b64encode(png_bytes).decode("utf-8")
+        return jsonify(
+            {
+                "success": True,
+                "png_base64": b64,
+                "size": len(png_bytes),
+            }
+        )
+    except (ValidationError, CutoutError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cutout/trace", methods=["POST"])
+def cutout_trace():
+    """一键「抠图 + 描图」串联：抠主体 → 背景色合成 → SVG（base64 JSON）"""
+    upload, err = _get_uploaded_image()
+    if err:
+        return err
+
+    image_bytes, _ = upload
+    params = _cutout_form_params()
+    try:
+        bg = tuple(int(v) for v in request.form.get("background", "255,255,255").split(","))
+        if len(bg) != 3 or any(not (0 <= v <= 255) for v in bg):
+            raise ValueError
+        params["background"] = bg
+    except ValueError:
+        return jsonify({"error": "background 格式应为 R,G,B（0-255），如 255,255,255"}), 400
+
+    try:
+        svg_bytes = sdk.cutout_then_trace_bytes(image_bytes, **params)
+        b64 = base64.b64encode(svg_bytes).decode("utf-8")
+        return jsonify(
+            {
+                "success": True,
+                "svg_base64": b64,
+                "size": len(svg_bytes),
+            }
+        )
+    except (ValidationError, CutoutError) as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

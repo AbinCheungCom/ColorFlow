@@ -284,6 +284,117 @@ colorMatchBtn.addEventListener('click', async () => {
   }
 });
 
+// === Cutout 抠图 ===
+const cutoutUploadZone = document.getElementById('cutoutUploadZone');
+const cutoutFile = document.getElementById('cutoutFile');
+const cutoutPreview = document.getElementById('cutoutPreview');
+const cutoutBtn = document.getElementById('cutoutBtn');
+const cutoutTraceBtn = document.getElementById('cutoutTraceBtn');
+const cutoutPreviewOut = document.getElementById('cutoutPreviewOut');
+const cutoutInfo = document.getElementById('cutoutInfo');
+const cutoutBg = document.getElementById('cutoutBg');
+const bgVal = document.getElementById('bgVal');
+
+let currentCutoutPng = null;
+let currentCutoutSvg = null;
+
+cutoutBg.addEventListener('input', () => bgVal.textContent = cutoutBg.value || '255,255,255');
+
+cutoutUploadZone.addEventListener('click', () => cutoutFile.click());
+cutoutUploadZone.addEventListener('dragover', e => { e.preventDefault(); cutoutUploadZone.classList.add('dragover'); });
+cutoutUploadZone.addEventListener('dragleave', () => cutoutUploadZone.classList.remove('dragover'));
+cutoutUploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  cutoutUploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) {
+    cutoutFile.files = e.dataTransfer.files;
+    handleCutoutFile(e.dataTransfer.files[0]);
+  }
+});
+cutoutFile.addEventListener('change', e => { if (e.target.files[0]) handleCutoutFile(e.target.files[0]); });
+
+function handleCutoutFile(file) {
+  if (!file.type.startsWith('image/')) { alert('请上传图片文件'); return; }
+  if (file.size > 10 * 1024 * 1024) { alert('图片不能超过 10MB'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    cutoutPreview.src = e.target.result;
+    cutoutPreview.classList.remove('hidden');
+    cutoutUploadZone.querySelector('.upload-placeholder').classList.add('hidden');
+    cutoutBtn.disabled = false;
+    cutoutTraceBtn.disabled = false;
+    currentCutoutPng = null; currentCutoutSvg = null;
+    cutoutInfo.classList.add('hidden');
+    cutoutPreviewOut.innerHTML = '<div class="svg-placeholder">等待生成...</div>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function cutoutFormData() {
+  const fd = new FormData();
+  fd.append('image', cutoutFile.files[0]);
+  fd.append('model', document.getElementById('cutoutModel').value);
+  fd.append('allow_rmbg', document.getElementById('cutoutAllowRmbg').checked ? 'true' : 'false');
+  fd.append('alpha_matting', document.getElementById('cutoutAlphaMatting').checked ? 'true' : 'false');
+  const bg = cutoutBg.value.trim() || '255,255,255';
+  if (/^\d{1,3},\d{1,3},\d{1,3}$/.test(bg)) fd.append('background', bg);
+  return fd;
+}
+
+function runCutout(url, key) {
+  if (!cutoutFile.files[0]) return;
+  const btn = key === 'png' ? cutoutBtn : cutoutTraceBtn;
+  btn.disabled = true;
+  btn.querySelector('.btn-text').classList.add('hidden');
+  btn.querySelector('.btn-loader').classList.remove('hidden');
+  cutoutPreviewOut.innerHTML = '<div class="svg-placeholder">处理中（首次运行需下载模型权重）...</div>';
+
+  apiFetch(url, { method: 'POST', body: cutoutFormData() })
+    .then(resp => resp.json())
+    .then(data => {
+      if (!data.success) {
+        cutoutPreviewOut.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">错误: ${escapeHtml(data.error)}</div>`;
+        return;
+      }
+      if (key === 'png') {
+        currentCutoutPng = data.png_base64;
+        cutoutPreviewOut.innerHTML = `<img src="data:image/png;base64,${data.png_base64}" alt="Cutout PNG" style="max-width:100%;max-height:320px;" />`;
+      } else {
+        currentCutoutSvg = data.svg_base64;
+        cutoutPreviewOut.innerHTML = `<img src="data:image/svg+xml;base64,${data.svg_base64}" alt="Cutout SVG" />`;
+      }
+      cutoutInfo.classList.remove('hidden');
+      cutoutInfo.querySelector('.svg-size').textContent = `${(data.size / 1024).toFixed(1)} KB`;
+    })
+    .catch(e => {
+      cutoutPreviewOut.innerHTML = `<div class="svg-placeholder" style="color:var(--error)">请求失败: ${escapeHtml(e)}</div>`;
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.querySelector('.btn-text').classList.remove('hidden');
+      btn.querySelector('.btn-loader').classList.add('hidden');
+    });
+}
+
+cutoutBtn.addEventListener('click', () => runCutout('/api/cutout', 'png'));
+cutoutTraceBtn.addEventListener('click', () => runCutout('/api/cutout/trace', 'svg'));
+
+document.getElementById('downloadCutoutPng').addEventListener('click', () => {
+  if (!currentCutoutPng) return;
+  const a = document.createElement('a');
+  a.href = 'data:image/png;base64,' + currentCutoutPng;
+  a.download = 'colorflow_cutout.png';
+  a.click();
+});
+
+document.getElementById('downloadCutoutSvg').addEventListener('click', () => {
+  if (!currentCutoutSvg) return;
+  const a = document.createElement('a');
+  a.href = 'data:image/svg+xml;base64,' + currentCutoutSvg;
+  a.download = 'colorflow_cutout.svg';
+  a.click();
+});
+
 // === Pantone Lookup ===
 const pantoneInput = document.getElementById('pantoneInput');
 const pantoneBtn = document.getElementById('pantoneBtn');

@@ -169,6 +169,65 @@ def export_print(
 
 
 @mcp.tool()
+def cutout_image(
+    image_path: str, model: str = "u2net", allow_rmbg: bool = False
+) -> str:
+    """抠图：背景移除，产出透明底 PNG（rembg 内核）。
+
+    Args:
+        image_path: 图片文件路径
+        model: u2net（默认，通用）| silueta（轻量）| isnet | birefnet-general | birefnet-2k
+        allow_rmbg: 是否放行 RMBG 系模型（bria-rmbg 等，BRIA 许可，商用需遵守协议）
+    Returns:
+        JSON: {success, png_path}
+    """
+    if not image_path.lower().endswith(ALLOWED_EXT):
+        return json.dumps(
+            {"error": f"不支持的文件类型，允许: {', '.join(ALLOWED_EXT)}"},
+            ensure_ascii=False,
+        )
+    try:
+        png_path = sdk.cutout(
+            image_path, model=model, allow_rmbg=allow_rmbg
+        )
+        return json.dumps({"success": True, "png_path": png_path}, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": f"抠图失败: {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
+def cutout_and_trace(
+    image_path: str,
+    model: str = "u2net",
+    allow_rmbg: bool = False,
+    background: str = "255,255,255",
+) -> str:
+    """一键「抠图 + 描图」串联：先移除背景再描图，SVG 路径更干净。
+
+    Args:
+        image_path: 图片文件路径
+        model: u2net（默认）| silueta | isnet | birefnet-general | birefnet-2k
+        allow_rmbg: 是否放行 RMBG 系模型（BRIA 许可）
+        background: 描图前合成背景色 "R,G,B"（默认白底）
+    Returns:
+        JSON: {success, svg_path}
+    """
+    if not image_path.lower().endswith(ALLOWED_EXT):
+        return json.dumps(
+            {"error": f"不支持的文件类型，允许: {', '.join(ALLOWED_EXT)}"},
+            ensure_ascii=False,
+        )
+    try:
+        bg = tuple(int(v) for v in background.split(","))
+        svg_path = sdk.cutout_then_trace(
+            image_path, background=bg, model=model, allow_rmbg=allow_rmbg
+        )
+        return json.dumps({"success": True, "svg_path": svg_path}, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001
+        return json.dumps({"error": f"抠图+描图失败: {e}"}, ensure_ascii=False)
+
+
+@mcp.tool()
 def trace_and_match(image_path: str, mode: str = "color") -> str:
     """一键流水线：位图 → SVG → 提取主色 → 每个主色匹配 Pantone（含 ΔE）。
 

@@ -11,6 +11,21 @@ ColorFlow 是一个 **AI Native 矢量描图封装层**，核心能力是将位�
 
 **一句话**：VTracer 是一个可被 AI Agent 调用的高质量矢量描图引擎，rembg 是抠图内核，ColorFlow 为两者封装三种调用接口。
 
+## 仓库结构（Monorepo）
+
+```
+ColorFlow/
+├── colorflow_sdk/       # Python SDK（描图 / 抠图 / 潘通 / 印刷导出）
+├── api/                 # FastAPI 服务（/api/v1/trace /cutout /cutout-trace）
+├── cli/                 # CLI（colorflow trace / cutout / cutout-trace）
+├── web/                 # ColorFlow Web 前端（Flask 单页 + MCP Server）
+├── docker/              # Docker 镜像（CLI 轻量版 / API 版）
+├── tests/               # SDK 测试
+└── scripts/             # 冒烟测试脚本
+```
+
+Web 前端（`web/`）通过 editable 本地引用根目录 SDK（`pip install -e ..`），无需单独发布即可使用全部能力。
+
 ## 三种调用方式
 
 ### 1. Python SDK（推荐）
